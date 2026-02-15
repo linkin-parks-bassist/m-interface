@@ -3,8 +3,8 @@
 
 #include "m_linked_list.h"
 
-#include "m_int_fpga.h"
-#include "m_int_parameter.h"
+#include "m_fpga.h"
+#include "m_parameter.h"
 
 #define M_DSP_BLOCK_N_REGS 2
 

@@ -3,5 +3,4 @@ idf_component_register(SRCS "m_fpga_comms.c"
 							driver
 							drivers
 							ui
-							teensy_comms
-					INCLUDE_DIRS "." "../../../shared" "../../main" "../" "../ui" "../drivers")
+					INCLUDE_DIRS "." "../../main" "../" "../ui" "../drivers")

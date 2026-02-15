@@ -5,8 +5,7 @@ idf_component_register(SRCS "m_int.c"
 							drivers
 							ui
 							core
-							teensy_comms
 							fpga_comms
-					INCLUDE_DIRS "." "../../shared")
+					INCLUDE_DIRS ".")
 
 target_compile_options(${COMPONENT_LIB} PRIVATE -DM_INTERFACE)

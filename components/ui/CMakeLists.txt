@@ -1,19 +1,18 @@
-idf_component_register(SRCS "m_int_button.c"
-							"m_int_home_view.c"
-							"m_int_menu.c"
-							"m_int_parameter_widget.c"
-							"m_int_profile_view.c"
-							"m_int_profile_settings.c"
-							"m_int_sequence_list.c"
-							"m_int_sequence_view.c"
-							"m_int_transformer_select.c"
-							"m_int_transformer_settings.c"
-							"m_int_transformer_view.c"
-							"m_int_ui.c"
+idf_component_register(SRCS "m_button.c"
+							"m_home_view.c"
+							"m_menu.c"
+							"m_parameter_widget.c"
+							"m_profile_view.c"
+							"m_profile_settings.c"
+							"m_sequence_list.c"
+							"m_sequence_view.c"
+							"m_transformer_select.c"
+							"m_transformer_settings.c"
+							"m_transformer_view.c"
+							"m_ui.c"
 					REQUIRES
 							driver
 							drivers
-							teensy_comms
 							fpga_comms
-					INCLUDE_DIRS "." "../../../shared" "../../main" "../" "../core")
+					INCLUDE_DIRS "." "../../main" "../" "../core")
 

@@ -4,9 +4,9 @@
 #include "m_error_codes.h"
 #include "m_alloc.h"
 
-#include "m_int_hfunc.h"
-#include "m_int_parameter.h"
-#include "m_int_transformer.h"
+#include "m_hfunc.h"
+#include "m_parameter.h"
+#include "m_transformer.h"
 #include "m_effect.h"
 
 IMPLEMENT_LINKED_PTR_LIST(m_effect_desc);

@@ -33,7 +33,7 @@ void app_main()
 	
 	#ifdef USE_SGTL5000
 	xTaskCreate(
-		m_int_sgtl5000_init,
+		m_sgtl5000_init,
 		NULL,
 		4096,
 		NULL,
@@ -53,8 +53,8 @@ void app_main()
 	);
 	xTaskCreate(m_param_update_task, NULL, 4096, NULL, 8, NULL);
 	#else
-	init_m_int_msg_queue();
-	begin_m_int_comms();
+	init_m_msg_queue();
+	begin_m_comms();
 	#endif
 	
 	#ifdef USE_SDCARD
@@ -75,8 +75,10 @@ void app_main()
 	
 	load_saved_sequences(&global_cxt);
 	
+	#ifdef USE_TEENSY
 	send_all_profiles_to_teensy(&global_cxt);
 	send_settings(&global_cxt.settings);
+	#endif
 	
 	init_settings_save_task();
 	#endif
@@ -92,8 +94,8 @@ void app_main()
 	if (bsp_display_lock(0))
 	{
 		#ifdef M_ENABLE_LV_LOGGING
-		lv_log_register_print_cb(m_int_lv_log_cb);
-		m_int_log_init();
+		lv_log_register_print_cb(m_lv_log_cb);
+		m_log_init();
 		#endif
 		m_create_ui(disp);
 		#ifdef M_PRINT_MEMORY_REPORT
