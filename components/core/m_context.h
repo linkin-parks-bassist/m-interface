@@ -9,7 +9,6 @@
 #include "m_settings.h"
 
 #include "m_parameter.h"
-#include "m_effect.h"
 
 typedef m_profile_pll profile_ll;
 

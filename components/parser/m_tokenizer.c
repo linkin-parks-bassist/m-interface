@@ -2,10 +2,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "tokenizer.h"
-#include "block.h"
-#include "dq.h"
-#include "m_parser.h"
+#include "m_int.h"
+
+IMPLEMENT_LINKED_PTR_LIST(char);
 
 int char_is_letter(char c)
 {
@@ -43,7 +42,6 @@ int char_is_in_string(char c, const char *str)
 	
 	return 1;
 }
-
 
 int token_is_valid_section_name(char *str)
 {
@@ -138,6 +136,23 @@ int token_is_number(char *token)
 	}
 	
 	return 1;
+}
+
+int token_is_dict_entry_seperator(char *token)
+{
+	if (!token)
+		return 0;
+	
+	if (strcmp(token, ",") == 0)
+		return 1;
+	
+	if (strcmp(token, "\n") == 0)
+		return 1;
+	
+	if (strcmp(token, ";") == 0)
+		return 1;
+	
+	return 0;
 }
 
 float digit_to_float(char c)
@@ -451,36 +466,6 @@ int m_token_ll_safe_append(m_token_ll **list_ptr, char *x, int line, int index)
 	if (*list_ptr)
 	{
 		m_token_ll *current = *list_ptr;
-		
-		while (current->next)
-			current = current->next;
-		
-		current->next = node;
-	}
-	else
-	{
-		*list_ptr = node;
-	}
-	
-	return NO_ERROR;
-}
-
-int char_pll_safe_append(string_ll **list_ptr, char *x)
-{
-	if (!list_ptr)
-		return ERR_NULL_PTR;
-	
-	string_ll *node = m_alloc(sizeof(string_ll));
-	
-	if (!node)
-		return ERR_ALLOC_FAIL;
-	
-	node->data = x;
-	node->next = NULL;
-	
-	if (*list_ptr)
-	{
-		string_ll *current = *list_ptr;
 		
 		while (current->next)
 			current = current->next;

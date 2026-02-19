@@ -921,10 +921,32 @@ int load_saved_sequences(m_context *cxt)
 	return NO_ERROR;
 }
 
-int load_effects_from_disk(m_context *cxt)
+int load_effects(m_context *cxt)
 {
 	if (!cxt)
 		return ERR_NULL_PTR;
+	
+	string_ll *current = list_files_in_directory(M_EFFECT_DESC_DIR);
+	
+	m_effect_desc *eff = NULL;
+	int ret_val = NO_ERROR;
+	
+	while (current)
+	{
+		eff = m_read_eff_desc_from_file(current->data);
+		
+		if (eff)
+		{
+			ret_val = m_effect_desc_pll_safe_append(&cxt->effects, eff);
+			
+			if (ret_val != NO_ERROR)
+			{
+				printf("Error adding effect \"%s\"\n", eff->name);
+			}
+		}
+		
+		current = current->next;
+	}
 	
 	return NO_ERROR;
 }

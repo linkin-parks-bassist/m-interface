@@ -55,31 +55,31 @@ int m_context_init_effect_list(m_context *cxt)
 	if (!cxt)
 		return ERR_NULL_PTR;
 	
-	cxt->effects = m_effect_desc_pll_append(cxt->effects, create_gain_eff_desc());
+	/*cxt->effects = m_effect_desc_pll_append(cxt->effects, create_gain_eff_desc());
 	cxt->effects = m_effect_desc_pll_append(cxt->effects, create_distortion_eff_desc());
 	cxt->effects = m_effect_desc_pll_append(cxt->effects, create_arctan_distortion_eff_desc());
-	/*cxt->effects = m_effect_desc_pll_append(cxt->effects, create_tube_distortion_eff_desc());
+	cxt->effects = m_effect_desc_pll_append(cxt->effects, create_tube_distortion_eff_desc());
 	cxt->effects = m_effect_desc_pll_append(cxt->effects, create_comb_filter_eff_desc());
 	cxt->effects = m_effect_desc_pll_append(cxt->effects, create_flanger_eff_desc());
 	cxt->effects = m_effect_desc_pll_append(cxt->effects, create_smoother_eff_desc());
-	cxt->effects = m_effect_desc_pll_append(cxt->effects, create_unsmoother_eff_desc());*/
+	cxt->effects = m_effect_desc_pll_append(cxt->effects, create_unsmoother_eff_desc());
 	
 	cxt->effects = m_effect_desc_pll_append(cxt->effects, create_lpf_eff_desc());
-	cxt->effects = m_effect_desc_pll_append(cxt->effects, create_hpf_eff_desc());
+	cxt->effects = m_effect_desc_pll_append(cxt->effects, create_hpf_eff_desc());*/
 	
 	return NO_ERROR;
 }
 
 int get_effect_desc(int id)
 {
-	m_effect_desc_pll *current = global_cxt.effects;
+	/*m_effect_desc_pll *current = global_cxt.effects;
 	
 	while (current)
 	{
 		if (current->data && current->data->id == id)
 			return current->data;
 		current = current->next;
-	}
+	}*/
 	
 	return NULL;
 }

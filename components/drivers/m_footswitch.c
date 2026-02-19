@@ -1,10 +1,7 @@
 #include <freertos/FreeRTOS.h>
 #include <driver/gpio.h>
 
-#include "m_error_codes.h"
-
-#include "m_footswitch.h"
-#include "m_context.h"
+#include "m_int.h"
 
 #define HW_SWITCH_GPIO_0   22   // n = 0
 #define HW_SWITCH_GPIO_1   23   // n = 1

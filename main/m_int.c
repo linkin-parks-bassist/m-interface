@@ -63,23 +63,13 @@ void app_main()
 	m_init_directories();
 	
 	if (load_settings_from_file(&global_cxt.settings, SETTINGS_FNAME) == ERR_FOPEN_FAIL)
-	{
 		save_settings_to_file(&global_cxt.settings, SETTINGS_FNAME);
-	}
 	
-	load_effects_from_disk(&global_cxt);
-	
+	load_effects(&global_cxt);
 	//load_saved_profiles(&global_cxt);
 	
 	context_print_profiles(&global_cxt);
-	
 	load_saved_sequences(&global_cxt);
-	
-	#ifdef USE_TEENSY
-	send_all_profiles_to_teensy(&global_cxt);
-	send_settings(&global_cxt.settings);
-	#endif
-	
 	init_settings_save_task();
 	#endif
 	

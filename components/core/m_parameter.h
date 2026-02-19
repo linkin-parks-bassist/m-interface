@@ -1,13 +1,8 @@
 #ifndef M_INT_PARAMETER_H_
 #define M_INT_PARAMETER_H_
 
-#ifdef __cplusplus
-#include <cstddef>
-#include <cstdint>
-#else
 #include <stddef.h>
 #include <stdint.h>
-#endif
 
 #include "m_linked_list.h"
 #include "m_representation.h"
@@ -24,11 +19,16 @@ typedef struct m_parameter_id
 	uint16_t parameter_id;
 } m_parameter_id;
 
+struct m_expression;
+
 typedef struct m_parameter
 {
 	float value;
 	float min;
 	float max;
+	
+	struct m_expression *min_expr;
+	struct m_expression *max_expr;
 	
 	int scale;
 	
@@ -108,6 +108,8 @@ typedef m_setting_pll setting_ll;
 int init_parameter_str(m_parameter *param);
 int init_parameter(m_parameter *param, const char *name, float level, float min, float max);
 int init_parameter_wni(m_parameter *param, const char *name, const char *name_internal, float level, float min, float max);
+
+int m_parameters_assign_ids(m_parameter_pll *list);
 
 m_parameter *new_m_parameter_wni(const char *name, const char *name_internal, float level, float min, float max);
 

@@ -1,5 +1,4 @@
 idf_component_register(SRCS "m_sgtl5000.c"
-							"m_fpga.c"
 							"m_sd.c"
 							"m_footswitch.c"
 							"waveshare_dsi_touch_5_a.c"
@@ -11,5 +10,6 @@ idf_component_register(SRCS "m_sgtl5000.c"
 							esp32_p4_nano
 							fatfs
 							core
+							parser
 							fpga_comms
-					INCLUDE_DIRS "." "../../main" "../" "../ui" "../core")
+					INCLUDE_DIRS "." "../../main" "../" "../ui" "../core" "../parser")

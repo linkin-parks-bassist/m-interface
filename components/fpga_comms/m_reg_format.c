@@ -1,20 +1,13 @@
 #include <stdio.h>
 
-#include "tokenizer.h"
-#include "block.h"
-#include "dq.h"
-#include "m_parser.h"
-#include "asm.h"
-#include "dictionary.h"
-#include "reg.h"
+#include "m_int.h"
 
-int m_compute_register_formats(m_eff_parsing_state *ps)
+int m_compute_register_formats(m_block_pll *blocks, m_parameter_pll *parameters)
 {
 	printf("m_compute_register_formats\n");
-	if (!ps)
-		return NO_ERROR;
+	if (!blocks) return NO_ERROR;
 	
-	m_block_pll *current = ps->blocks;
+	m_block_pll *current = blocks;
 	
 	m_interval range;
 	float min, max;
@@ -34,9 +27,9 @@ int m_compute_register_formats(m_eff_parsing_state *ps)
 			
 			if (current->data->reg_0.active)
 			{
-				if (!shift_set && current->data->reg_0.dq)
+				if (!shift_set && current->data->reg_0.expr)
 				{
-					range = m_derived_quantity_compute_range(current->data->reg_0.dq, ps->parameters);
+					range = m_expression_compute_range(current->data->reg_0.expr, parameters);
 					min = range.a;
 					max = range.b;
 					
@@ -68,10 +61,11 @@ int m_compute_register_formats(m_eff_parsing_state *ps)
 			
 			if (current->data->reg_1.active)
 			{
-				if (!shift_set && current->data->reg_1.dq)
+				if (!shift_set && current->data->reg_1.expr)
 				{
-					min = m_dq_min(current->data->reg_1.dq, ps->parameters);
-					max = m_dq_max(current->data->reg_1.dq, ps->parameters);
+					range = m_expression_compute_range(current->data->reg_1.expr, parameters);
+					min = range.a;
+					max = range.b;
 					
 					printf("Block %d register 1 has min %f and maximum %f, so ", i, min, max);
 					
@@ -91,7 +85,7 @@ int m_compute_register_formats(m_eff_parsing_state *ps)
 						format++;
 					}
 					
-					printf("needed format: q%d.%d\n", format + 1, 16 - format - 1);
+					printf("needed format: q%d.%d\n", format + 1, M_FPGA_DATA_WIDTH - format - 1);
 				}
 				
 				current->data->reg_1.format = format;

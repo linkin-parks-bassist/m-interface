@@ -14,8 +14,6 @@ static const char *TAG = "m_sd.c";
 
 #include "m_int.h"
 
-IMPLEMENT_LINKED_PTR_LIST(char);
-
 #define MAX_PARALLEL_FILES 5
 
 const int mount_point_strlen = strlen(MOUNT_POINT);

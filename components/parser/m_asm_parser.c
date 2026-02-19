@@ -2,56 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "tokenizer.h"
-#include "block.h"
-#include "dq.h"
-#include "m_parser.h"
-#include "asm.h"
-
-int m_parse_code_section(m_eff_parsing_state *ps, m_ast_node *section)
-{
-	if (!ps || !section)
-		return ERR_NULL_PTR;
-	
-	if (section->type != M_AST_NODE_SECTION)
-		return ERR_BAD_ARGS;
-	
-	m_eff_desc_file_section *sec = (m_eff_desc_file_section*)section->data;
-	m_token_ll *tokens = sec->tokens;
-	
-	if (!tokens)
-		return ERR_BAD_ARGS;
-	
-	ps->current_token = tokens->next;
-	
-	m_parse_asm(ps);
-	
-	return NO_ERROR;
-}
-
-m_block_operand operand_const_zero()
-{
-	m_block_operand res;
-	res.type = BLOCK_OPERAND_TYPE_R;
-	res.addr = ZERO_REGISTER_ADDR;
-	return res;
-}
-
-m_block_operand operand_const_one()
-{
-	m_block_operand res;
-	res.type = BLOCK_OPERAND_TYPE_R;
-	res.addr = POS_ONE_REGISTER_ADDR;
-	return res;
-}
-
-m_block_operand operand_const_minus_one()
-{
-	m_block_operand res;
-	res.type = BLOCK_OPERAND_TYPE_R;
-	res.addr = NEG_ONE_REGISTER_ADDR;
-	return res;
-}
+#include "m_int.h"
 
 #define CH_DELIMITER 'c'
 #define DQ_DELIMITER "["
@@ -137,7 +88,7 @@ int m_parse_asm_arg(m_eff_parsing_state *ps, m_asm_arg *arg)
 			
 		} while (strcmp(tok->data, DQ_CODELIMITER) != 0);
 		
-		if (arg) arg->dq = new_m_derived_quantity_from_tokens(current->next, tok);
+		if (arg) arg->expr = new_m_expression_from_tokens(current->next, tok);
 		
 		if (tok)
 			current = tok;
@@ -715,7 +666,7 @@ int m_parse_asm_line(m_eff_parsing_state *ps)
 				block->arg_a.addr = 0;
 				reg_0_taken = 1;
 				
-				block->reg_0.dq = args[arg_a_pos].dq;
+				block->reg_0.expr = args[arg_a_pos].expr;
 				block->reg_0.active = 1;
 				break;
 			
@@ -742,7 +693,7 @@ int m_parse_asm_line(m_eff_parsing_state *ps)
 					block->arg_b.addr = 0;
 					reg_0_taken = 1;
 					
-					block->reg_0.dq = args[arg_b_pos].dq;
+					block->reg_0.expr = args[arg_b_pos].expr;
 					block->reg_0.active = 1;
 				}
 				else
@@ -750,7 +701,7 @@ int m_parse_asm_line(m_eff_parsing_state *ps)
 					block->arg_b.addr = 1;
 					reg_1_taken = 1;
 					
-					block->reg_1.dq = args[arg_b_pos].dq;
+					block->reg_1.expr = args[arg_b_pos].expr;
 					block->reg_1.active = 1;
 				}
 				break;
@@ -779,7 +730,7 @@ int m_parse_asm_line(m_eff_parsing_state *ps)
 					block->arg_c.addr = 0;
 					reg_0_taken = 1;
 					
-					block->reg_0.dq = args[arg_c_pos].dq;
+					block->reg_0.expr = args[arg_c_pos].expr;
 					block->reg_0.active = 1;
 				}
 				else if (!reg_1_taken)
@@ -787,7 +738,7 @@ int m_parse_asm_line(m_eff_parsing_state *ps)
 					block->arg_c.addr = 1;
 					reg_1_taken = 1;
 					
-					block->reg_1.dq = args[arg_c_pos].dq;
+					block->reg_1.expr = args[arg_c_pos].expr;
 					block->reg_1.active = 1;
 				}
 				else

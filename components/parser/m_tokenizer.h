@@ -19,19 +19,12 @@
 #define TOKENIZER_POLICY_END_DISCARD 	5
 #define TOKENIZER_POLICY_COMPLAIN		6
 
-typedef struct string_ll {
-	char *data;
-	struct string_ll *next;
-} string_ll;
-
 typedef struct m_token_ll {
 	char *data;
 	int line;
 	int index;
 	struct m_token_ll *next;
 } m_token_ll;
-
-typedef char* m_token;
 
 int m_tokenize_eff_file(FILE *file, m_token_ll **tokens);
 
@@ -46,9 +39,10 @@ int token_is_valid_section_name(char *str);
 
 int token_is_int(char *token);
 int token_is_number(char *token);
-float token_to_float(char *token);
 int token_is_name(char *token);
+int token_is_dict_entry_seperator(char *token);
 
+float token_to_float(char *token);
 
 m_token_ll *m_token_span_to_ll(m_token_ll *start, m_token_ll *end);
 

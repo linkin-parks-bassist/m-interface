@@ -1,7 +1,4 @@
-#include <freertos/FreeRTOS.h>
 #include "m_int.h"
-
-#include "m_error_codes.h"
 
 #define UPDATE_QUEUE_LENGTH 64
 

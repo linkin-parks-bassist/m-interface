@@ -192,6 +192,7 @@ m_fpga_transfer_batch m_pipeline_create_fpga_transfer_batch(m_pipeline *pipeline
 	if (!pipeline)
 		return result;
 	
+	/*
 	m_fpga_resource_report res   = m_empty_fpga_resource_report();
 	m_fpga_resource_report local = m_empty_fpga_resource_report();
 	
@@ -212,6 +213,7 @@ m_fpga_transfer_batch m_pipeline_create_fpga_transfer_batch(m_pipeline *pipeline
 		
 		current = current->next;
 	}
+	*/
 	
 	return result;
 }

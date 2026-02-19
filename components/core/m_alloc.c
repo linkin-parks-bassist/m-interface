@@ -1,9 +1,3 @@
-#ifdef M_INTERFACE
-#include "m_int.h"
-#elif defined(M_ENGINE)
-#include "m_eng.h"
-#endif
-
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -136,7 +130,6 @@ void lv_free_core(void * p)
 	return m_free(p);
 }
 
-#ifdef M_INTERFACE
 void *m_lv_malloc(size_t size)
 {
     return heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
@@ -146,7 +139,6 @@ void m_lv_free(void *ptr)
 {
     heap_caps_free(ptr);
 }
-#endif
 
 void print_memory_report()
 {

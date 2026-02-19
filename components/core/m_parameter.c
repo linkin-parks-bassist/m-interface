@@ -12,22 +12,16 @@ int init_parameter_str(m_parameter *param)
 	
 	param->value = 0.0;
 	param->min = 0.0;
+	param->min_expr = NULL;
 	param->max = 1.0;
-	
+	param->max_expr = NULL;
 	param->max_velocity = DEFAULT_MAX_VELOCITY;
-	
 	param->factor = 1.0;
-	
 	param->id = (m_parameter_id){.profile_id = 0, .transformer_id = 0, .parameter_id = 0};
-	
 	param->name = NULL;
-	
 	param->widget_type = PARAM_WIDGET_VIRTUAL_POT;
-	
 	param->group = -1;
-	
 	param->reps = NULL;
-	
 	return NO_ERROR;
 }
 
@@ -40,18 +34,14 @@ int init_parameter(m_parameter *param, const char *name, float level, float min,
 	param->units = NULL;
 	param->value = level;
 	param->min = min;
+	param->min_expr = NULL;
 	param->max = max;
-	
+	param->max_expr = NULL;
 	param->max_velocity = fabsf(DEFAULT_MAX_VELOCITY * (max - min));
-	
 	param->factor = 1.0;
-	
 	param->group = -1;
-	
 	param->widget_type = PARAM_WIDGET_VIRTUAL_POT;
-	
 	param->reps = NULL;
-	
 	return NO_ERROR;
 }
 
@@ -239,4 +229,19 @@ void gut_setting(m_setting *setting)
 		return;
 	
 	m_free(setting->options);
+}
+
+int m_parameters_assign_ids(m_parameter_pll *list)
+{
+	int next_parameter_id = 0;
+	
+	m_parameter_pll *current = list;
+	
+	while (current)
+	{
+		if (current->data) current->data->id.parameter_id = next_parameter_id++;
+		current = current->next;
+	}
+	
+	return NO_ERROR;
 }

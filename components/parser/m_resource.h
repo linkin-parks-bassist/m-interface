@@ -14,16 +14,19 @@ typedef struct m_dsp_resource {
 	void *data;
 } m_dsp_resource;
 
-int m_dsp_resource_init(m_dsp_resource *res);
+int m_init_dsp_resource(m_dsp_resource *res);
 
-typedef struct m_dsp_resource_pll {
-	m_dsp_resource *data;
-	struct m_dsp_resource_pll *next;
-} m_dsp_resource_pll;
+int string_to_resource_type(const char *type_str);
 
-struct m_ast_node;
+DECLARE_LINKED_PTR_LIST(m_dsp_resource);
 
-int m_extract_resources(m_dsp_resource_pll **list, struct m_ast_node *sect);
 int m_resources_assign_handles(m_dsp_resource_pll *list);
+
+typedef struct
+{
+	unsigned int blocks;
+	unsigned int memory;
+	unsigned int delays;
+} m_eff_resource_report;
 
 #endif

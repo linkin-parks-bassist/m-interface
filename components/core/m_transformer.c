@@ -93,39 +93,15 @@ int init_transformer(m_transformer *trans)
 
 int init_transformer_from_effect_desc(m_transformer *trans, m_effect_desc *eff)
 {
-	printf("init_transformer_from_effect_desc. trans = %p, eff = %p\n", trans, eff);
 	init_transformer(trans);
 	trans->eff = eff;
 	
-	m_parameter_pll *nl;
-	m_parameter *param;
+	m_parameter_pll *current = eff->parameters;
 	
-	if (eff->params)
+	while (current)
 	{
-		printf("Cloning parameters. n_params = %d\n", eff->n_params);
-		for (int i = 0; i < eff->n_params; i++)
-		{
-			if (eff->params[i])
-			{
-				printf("Parameter %d = %p\n", i, eff->params[i]);
-				param = m_parameter_make_clone(eff->params[i]);
-				
-				if (!param)
-					return ERR_ALLOC_FAIL;
-				
-				param->id.transformer_id = trans->id;
-				param->id.parameter_id = i;
-				
-				nl = m_parameter_pll_append(trans->parameters, param);
-				
-				if (!nl)
-					return ERR_ALLOC_FAIL;
-				
-				trans->parameters = nl;
-				
-				printf("Added sucessfully. trans->parameters = %p\n", trans->parameters);
-			}
-		}
+		m_parameter_pll_safe_append(&trans->parameters, m_parameter_make_clone(current->data));
+		current = current->next;
 	}
 	
 	return NO_ERROR;
@@ -452,21 +428,25 @@ m_setting *transformer_get_setting(m_transformer *trans, int n)
 
 int m_fpga_transfer_batch_append_transformer(
 		m_transformer *trans,
-		const m_fpga_resource_report *cxt,
-		m_fpga_resource_report *report,
+		const m_eff_resource_report *cxt,
+		m_eff_resource_report *report,
 		m_fpga_transfer_batch *batch
 	)
 {
+	/*
 	if (!trans || !cxt || !report || !batch)
 		return ERR_NULL_PTR;
 	
 	trans->block_position = cxt->blocks;
 	
 	return m_fpga_transfer_batch_append_effect(trans->eff, cxt, report, trans->parameters, batch);
+	*/
+	return ERR_UNIMPLEMENTED;
 }
 
 int m_transformer_update_fpga_registers(m_transformer *trans)
 {
+	/*
 	if (!trans)
 		return ERR_NULL_PTR;
 	
@@ -492,4 +472,6 @@ int m_transformer_update_fpga_registers(m_transformer *trans)
 	int ret_val = m_fpga_queue_transfer_batch(batch);
 	
 	return ret_val;
+	*/
+	return ERR_UNIMPLEMENTED;
 }

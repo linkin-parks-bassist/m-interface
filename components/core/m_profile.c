@@ -331,10 +331,11 @@ int m_profile_program_fpga(m_profile *profile)
 	if (!profile)
 		return ERR_NULL_PTR;
 	
+	/*
 	m_fpga_transfer_batch send_seq = m_pipeline_create_fpga_transfer_batch(&profile->pipeline);
 	m_fpga_queue_transfer_batch(send_seq);
 	m_fpga_queue_pipeline_swap();
-	
+	*/
 	return NO_ERROR;
 }
 

@@ -6,8 +6,6 @@
 struct m_profile;
 struct m_ui_page;
 
-#include "m_effect.h"
-
 typedef struct m_transformer
 {
 	uint16_t type;
@@ -67,8 +65,8 @@ m_setting *transformer_get_setting(m_transformer *trans, int n);
 
 int m_fpga_transfer_batch_append_transformer(
 		m_transformer *trans,
-		const m_fpga_resource_report *cxt,
-		m_fpga_resource_report *report,
+		const m_eff_resource_report *cxt,
+		m_eff_resource_report *report,
 		m_fpga_transfer_batch *batch
 	);
 

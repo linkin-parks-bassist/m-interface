@@ -15,8 +15,9 @@
 
 #define MAIN_SEQUENCE_FNAME "/sdcard/MAIN_SEQ.MS"
 
-#define M_PROFILES_DIR  "/sdcard/prof/"
-#define M_SEQUENCES_DIR "/sdcard/seq/"
+#define M_PROFILES_DIR  	"/sdcard/prof/"
+#define M_SEQUENCES_DIR 	"/sdcard/seq/"
+#define M_EFFECT_DESC_DIR 	"/sdcard/eff/"
 
 #define PROFILE_EXTENSION  ".MP"
 #define SEQUENCE_EXTENSION ".MS"
@@ -32,7 +33,7 @@ int read_sequence_from_file		(m_sequence *sequence, const char *fname);
 int save_settings_to_file(m_settings *settings, const char *fname);
 int load_settings_from_file(m_settings *settings, const char *fname);
 
-int load_effects_from_disk(m_context *cxt);
+int load_effects(m_context *cxt);
 
 int init_periodic_backup_task();
 
