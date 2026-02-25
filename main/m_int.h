@@ -1,5 +1,6 @@
-#ifndef ESP32_M_H_
-#define ESP32_M_H_
+#ifndef M_LIBRARY
+#ifndef M_INTERFACE_MAIN_H_
+#define M_INTERFACE_MAIN_H_
 
 #include <stdint.h>
 #include <string.h>
@@ -9,15 +10,25 @@
 
 #define M_ENABLE_LV_LOGGING
 
+#define M_ENABLE_UI
+
 #define USE_5A
 
 #define USE_DISPLAY
+#define M_ENABLE_SDCARD
 #define USE_SDCARD
 #define USE_SGTL5000
 //#define USE_COMMS
+#define M_ENABLE_FPGA
 #define USE_FPGA
 //#define USE_TEENSY
 //#define PRINT_MEMORY_USAGE
+
+#define M_ENABLE_REPRESENTATIONS
+#define M_ENABLE_GLOBAL_CONTEXT
+#define M_ENABLE_SEQUENCES
+
+#define M_USE_FREERTOS
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
@@ -34,10 +45,6 @@
 #define LL_FREE   m_free
 
 #define SETTINGS_FNAME "/sdcard/conf"
-
-#ifndef M_INTERFACE
- #define M_INTERFACE
-#endif
 
 #ifndef m_printf
  #define m_printf printf
@@ -63,6 +70,7 @@ typedef char_pll string_ll;
 #include "m_status.h"
 #include "m_transformer_enum.h"
 #include "m_alloc.h"
+#include "m_bump_arena.h"
 #include "m_hfunc.h"
 #include "m_i2c.h"
 #include "m_sgtl5000.h"
@@ -88,12 +96,15 @@ typedef char_pll string_ll;
 #include "m_menu.h"
 #include "m_lv_log.h"
 #include "m_tokenizer.h"
-#include "m_expr_parser.h"
 #include "m_dictionary.h"
 #include "m_eff_parser.h"
+#include "m_expr_parser.h"
 #include "m_eff_section.h"
 #include "m_asm_parser.h"
 #include "m_reg_format.h"
 #include "m_fpga_encoding.h"
 
+#endif
+#else
+#include "m_lib.h"
 #endif

@@ -479,20 +479,10 @@ m_interval m_expression_compute_range_rec(m_expression *expr, m_parameter_pll *p
 	m_parameter *rp;
 	int found;
 	
-	float x_min;
-	float x_max;
-	float y_min;
-	float y_min_d;
-	float y_max;
-	float y_max_d;
 	
 	float p1, p2, p3, p4;
-	
 	float z;
-	
 	int k;
-	
-	int monotonicity = 0;
 	
 	m_interval ret;
 	
@@ -513,7 +503,7 @@ m_interval m_expression_compute_range_rec(m_expression *expr, m_parameter_pll *p
 		goto expr_int_ret;
 	}
 	
-	//printf("compute range (depth %d): %s\n", depth, m_expression_type_to_str(expr->type));
+	//printf("m_expression_compute_interval (depth %d) (%s)\n", depth, m_expression_type_to_str(expr->type));
 	
 	if (expr->constant && expr->cached)
 	{
@@ -545,7 +535,7 @@ m_interval m_expression_compute_range_rec(m_expression *expr, m_parameter_pll *p
 		found = 0;
 		while (current && !found)
 		{
-			if (current->data && strcmp(current->data->name, expr->val.ref_name) == 0)
+			if (current->data && strcmp(current->data->name_internal, expr->val.ref_name) == 0)
 			{
 				rp = current->data;
 				found = 1;
@@ -985,6 +975,8 @@ expr_int_ret:
 		ret.a = ret.b;
 		ret.b = z;
 	}
+	
+	//printf("m_expression_compute_interval (depth %d) (%s) ret [%.06f, %.06f]\n", depth, m_expression_type_to_str(expr->type), ret.a, ret.b);
 
 	return ret;
 }

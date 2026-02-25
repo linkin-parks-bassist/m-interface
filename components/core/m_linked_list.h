@@ -216,13 +216,17 @@ typedef struct X##_pll {																																\
 } X##_pll;																																				\
 																																						\
 X##_pll *X##_pll_new(X *value);																															\
+X##_pll *X##_pll_anew(X *value, void* (*allocator)(size_t size));																						\
 void free_##X##_pll(X##_pll *list);																														\
 X##_pll *X##_pll_tail(X##_pll *list);																													\
 X##_pll *X##_pll_append(X##_pll *list, X *value);																										\
-int X##_pll_safe_append(X##_pll **list_ptr, X *value);																										\
+X##_pll *X##_pll_aappend(X##_pll *list, X *value, void* (*allocator)(size_t size));																		\
+int X##_pll_safe_append(X##_pll **list_ptr, X *value);																									\
+int X##_pll_safe_aappend(X##_pll **list_ptr, X *value, void* (*allocator)(size_t size));																\
 X##_pll *X##_pll_append_return_tail(X##_pll **list, X *x);																								\
+X##_pll *X##_pll_aappend_return_tail(X##_pll **list, X *x, void* (*allocator)(size_t size));															\
 X##_pll *X##_pll_remove_next(X##_pll *list);																											\
-void X##_pll_free_all(X##_pll *list);																													\
+void free_##X##_pll(X##_pll *list);																													\
 void destructor_free_##X##_pll(X##_pll *list, void (*destructor)(X *x));																				\
 X##_pll *X##_pll_cmp_search(X##_pll *list, int (*cmp_function)(const X*, const X*), const X *x);														\
 X##_pll *X##_pll_destructor_free_and_remove_matching(X##_pll *list, int (*cmp_function)(X*, X*), X *x, void (*destructor)(X*));
@@ -232,6 +236,19 @@ X##_pll *X##_pll_destructor_free_and_remove_matching(X##_pll *list, int (*cmp_fu
 X##_pll *X##_pll_new(X *value)																															\
 {																																						\
 	X##_pll *result = (X##_pll*)LL_MALLOC(sizeof(X##_pll));																								\
+																																						\
+	if (result == NULL)																																	\
+		return NULL;																																	\
+																																						\
+	result->data = value;																																\
+	result->next = NULL;																																\
+																																						\
+	return result;																																		\
+}																																						\
+																																						\
+X##_pll *X##_pll_anew(X *value, void* (*allocator)(size_t size))																						\
+{																																						\
+	X##_pll *result = (X##_pll*)allocator(sizeof(X##_pll));																								\
 																																						\
 	if (result == NULL)																																	\
 		return NULL;																																	\
@@ -270,16 +287,31 @@ X##_pll *X##_pll_append(X##_pll *list, X *x)																											\
 	return list;																																		\
 }																																						\
 																																						\
+X##_pll *X##_pll_aappend(X##_pll *list, X *x, void* (*allocator)(size_t size))																			\
+{																																						\
+	X##_pll *next = X##_pll_anew(x, allocator);																											\
+	if (list == NULL) return next;																														\
+																																						\
+	X##_pll *current = list;																															\
+																																						\
+	while (current->next != NULL)																														\
+		current = current->next;																														\
+																																						\
+	current->next = next;																																\
+																																						\
+	return list;																																		\
+}																																						\
+																																						\
 int X##_pll_safe_append(X##_pll **list_ptr, X *x)																										\
 {																																						\
-	if (!list_ptr) return 0;																															\
+	if (!list_ptr) return ERR_NULL_PTR;																													\
 	X##_pll *next = X##_pll_new(x);																														\
-	if (!next) return 0;																																\
+	if (!next) return ERR_ALLOC_FAIL;																													\
 	X##_pll *list = *list_ptr;																															\
 	if (list == NULL)																																	\
 	{																																					\
 		*list_ptr = next;																																\
-		return 1;																																		\
+		return NO_ERROR;																																\
 	}																																					\
 																																						\
 	X##_pll *current = list;																															\
@@ -289,9 +321,30 @@ int X##_pll_safe_append(X##_pll **list_ptr, X *x)																										\
 																																						\
 	current->next = next;																																\
 																																						\
-	return 1;																																			\
+	return NO_ERROR;																																	\
 }																																						\
 																																						\
+int X##_pll_safe_aappend(X##_pll **list_ptr, X *x, void* (*allocator)(size_t size))																		\
+{																																						\
+	if (!list_ptr) return ERR_NULL_PTR;																													\
+	X##_pll *next = X##_pll_anew(x, allocator);																											\
+	if (!next) return ERR_ALLOC_FAIL;																													\
+	X##_pll *list = *list_ptr;																															\
+	if (list == NULL)																																	\
+	{																																					\
+		*list_ptr = next;																																\
+		return NO_ERROR;																																\
+	}																																					\
+																																						\
+	X##_pll *current = list;																															\
+																																						\
+	while (current->next != NULL)																														\
+		current = current->next;																														\
+																																						\
+	current->next = next;																																\
+																																						\
+	return NO_ERROR;																																	\
+}																																						\
 																																						\
 X##_pll *X##_pll_append_return_tail(X##_pll **list, X *x)																								\
 {																																						\
@@ -299,6 +352,27 @@ X##_pll *X##_pll_append_return_tail(X##_pll **list, X *x)																							
 		return NULL;																																	\
 																																						\
 	X##_pll *next = X##_pll_new(x);																														\
+	if (*list == NULL) {																																\
+		*list = next;																																	\
+		return next;																																	\
+	}																																					\
+																																						\
+	X##_pll *current = *list;																															\
+																																						\
+	while (current->next != NULL)																														\
+		current = current->next;																														\
+																																						\
+	current->next = next;																																\
+																																						\
+	return next;																																		\
+}																																						\
+																																						\
+X##_pll *X##_pll_aappend_return_tail(X##_pll **list, X *x, void* (*allocator)(size_t size))																\
+{																																						\
+	if (list == NULL)																																	\
+		return NULL;																																	\
+																																						\
+	X##_pll *next = X##_pll_anew(x, allocator);																											\
 	if (*list == NULL) {																																\
 		*list = next;																																	\
 		return next;																																	\
@@ -322,7 +396,7 @@ void free_##X##_pll(X##_pll *list)																														\
 	X##_pll *current = list;																															\
 	X##_pll *next = NULL;																																\
 	while (current != NULL) {																															\
-		next = current->next;																															\
+		printf("current = %p, next = %p\m", current, next);next = current->next;																															\
 		LL_FREE(current->data);																															\
 		LL_FREE(current);																																\
 		current = next;																																	\

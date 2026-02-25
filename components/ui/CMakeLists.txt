@@ -13,6 +13,6 @@ idf_component_register(SRCS "m_button.c"
 					REQUIRES
 							driver
 							drivers
-							fpga_comms
+							fpga
 					INCLUDE_DIRS "." "../../main" "../" "../core" "../parser")
 

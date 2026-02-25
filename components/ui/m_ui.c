@@ -73,7 +73,7 @@ int m_init_global_pages(m_global_pages *pages)
 		return ERR_NULL_PTR;
 	
 	init_main_menu(&pages->main_menu);
-	init_transformer_selector_eff(&pages->transformer_selector);
+	//init_transformer_selector_eff(&pages->transformer_selector);
 	
 	//init_profile_list(&pages->profile_list);
 	init_sequence_list(&pages->sequence_list);
@@ -230,8 +230,6 @@ int create_page_ui(m_ui_page *page)
 
 int enter_ui_page(m_ui_page *page)
 {
-	printf("enter ui page...\n");
-	
 	if (!page)
 	{
 		printf("Error! No page!\n");
@@ -280,14 +278,11 @@ int enter_ui_page(m_ui_page *page)
 
 	global_cxt.pages.current_page = page;
 	
-	printf("enter_ui_page done\n");
 	return NO_ERROR;
 }
 
 int enter_ui_page_forwards(m_ui_page *page)
 {
-	printf("enter ui page...\n");
-	
 	if (!page)
 	{
 		printf("Error! No page!\n");
@@ -336,14 +331,11 @@ int enter_ui_page_forwards(m_ui_page *page)
 	
 	global_cxt.pages.current_page = page;
 	
-	printf("enter_ui_page done\n");
 	return NO_ERROR;
 }
 
 int enter_ui_page_backwards(m_ui_page *page)
 {
-	printf("enter ui page...\n");
-	
 	if (!page)
 	{
 		printf("Error! No page!\n");
@@ -393,7 +385,6 @@ int enter_ui_page_backwards(m_ui_page *page)
 
 	global_cxt.pages.current_page = page;
 	
-	printf("enter_ui_page done\n");
 	return NO_ERROR;
 }
 

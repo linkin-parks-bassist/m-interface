@@ -68,18 +68,20 @@ void settings_save_task(void *arg)
 	{
 		if (global_cxt.settings.changed)
 		{
-			xSemaphoreTake(settings_mutex, portMAX_DELAY);
-			copy_settings_struct(&local_copy, &global_cxt.settings);
-			global_cxt.settings.changed = 0;
-			xSemaphoreGive(settings_mutex);
-			
-			printf("Settings change detected!\n");
-			
-			i = 0;
-			do {
-				ret_val = safe_file_write((int (*)(void*, const char*))save_settings_to_file, &local_copy, SETTINGS_FNAME);
-				i++;
-			} while (ret_val != NO_ERROR && i < SETTINGS_SAVE_TRIES);
+			if (xSemaphoreTake(sd_mutex, 0) == pdTRUE)
+			{
+				xSemaphoreTake(settings_mutex, portMAX_DELAY);
+				copy_settings_struct(&local_copy, &global_cxt.settings);
+				global_cxt.settings.changed = 0;
+				xSemaphoreGive(settings_mutex);
+				
+				i = 0;
+				do {
+					ret_val = safe_file_write((int (*)(void*, const char*))save_settings_to_file, &local_copy, SETTINGS_FNAME);
+					i++;
+				} while (ret_val != NO_ERROR && i < SETTINGS_SAVE_TRIES);
+				xSemaphoreGive(sd_mutex);
+			}
 			
 		}
 		vTaskDelayUntil(&last_wake, pdMS_TO_TICKS(100));

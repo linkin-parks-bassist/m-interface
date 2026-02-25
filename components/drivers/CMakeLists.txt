@@ -11,5 +11,7 @@ idf_component_register(SRCS "m_sgtl5000.c"
 							fatfs
 							core
 							parser
-							fpga_comms
+							fpga
+							tinyusb
+							esp_tinyusb
 					INCLUDE_DIRS "." "../../main" "../" "../ui" "../core" "../parser")

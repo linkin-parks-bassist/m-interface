@@ -12,7 +12,10 @@ char *binary_print_n(uint32_t x, int n)
 	
 	int i = 0;
 	while (i < n && i < 32)
+	{
 		binary_print_buffer[i+2] = '0' + (!!(x & (1 << (7 - i))));
+		i++;
+	}
 	
 	binary_print_buffer[i] = 0;
 	

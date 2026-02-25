@@ -2,7 +2,9 @@
 
 IMPLEMENT_LINKED_PTR_LIST(m_representation);
 
+#ifdef M_USE_FREERTOS
 QueueHandle_t m_rep_update_queue;
+#endif
 
 void m_representation_pll_update_all(m_representation_pll *reps)
 {
@@ -19,7 +21,8 @@ void m_representation_pll_update_all(m_representation_pll *reps)
 	}
 }
 
-void update_queued_representations_cb(lv_timer_t * timer)
+#ifdef M_ENABLE_REPRESENTATIONS
+void update_queued_representations_cb(lv_timer_t *timer)
 {
 	m_representation_pll *list;
 	
@@ -36,15 +39,20 @@ int init_representation_updater()
 	lv_timer_t * timer = lv_timer_create(update_queued_representations_cb, 1,  NULL);
 	return NO_ERROR;
 }
+#endif
 
 int queue_representation_list_update(m_representation_pll *reps)
 {
+	#ifdef M_ENABLE_REPRESENTATIONS
+	#ifdef M_USE_FREERTOS
 	if (xQueueSend(m_rep_update_queue, (void*)&reps, (TickType_t)10) != pdPASS)
 	{
 		return ERR_QUEUE_SEND_FAILED;
 	}
-	
+	#endif
 	return NO_ERROR;
+	#endif
+	return ERR_FEATURE_DISABLED;
 }
 
 m_representation_pll *m_representation_pll_remove(m_representation_pll *reps, m_representation *rep)

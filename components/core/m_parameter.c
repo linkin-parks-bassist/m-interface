@@ -1,6 +1,6 @@
 #include "m_int.h"
 
-#define DEFAULT_MAX_VELOCITY 0.001
+#define DEFAULT_MAX_VELOCITY 1.0
 
 IMPLEMENT_LINKED_PTR_LIST(m_parameter);
 IMPLEMENT_LINKED_PTR_LIST(m_setting);
@@ -19,9 +19,15 @@ int init_parameter_str(m_parameter *param)
 	param->factor = 1.0;
 	param->id = (m_parameter_id){.profile_id = 0, .transformer_id = 0, .parameter_id = 0};
 	param->name = NULL;
+	param->name_internal = NULL;
+	param->units = NULL;
 	param->widget_type = PARAM_WIDGET_VIRTUAL_POT;
+	param->scale = PARAMETER_SCALE_LINEAR;
 	param->group = -1;
+	
+	#ifdef M_ENABLE_REPRESENTATIONS
 	param->reps = NULL;
+	#endif
 	return NO_ERROR;
 }
 
@@ -41,7 +47,10 @@ int init_parameter(m_parameter *param, const char *name, float level, float min,
 	param->factor = 1.0;
 	param->group = -1;
 	param->widget_type = PARAM_WIDGET_VIRTUAL_POT;
+	
+	#ifdef M_ENABLE_REPRESENTATIONS
 	param->reps = NULL;
+	#endif
 	return NO_ERROR;
 }
 
@@ -81,7 +90,9 @@ int init_setting_str(m_setting *setting)
 	
 	setting->group = -1;
 	
+	#ifdef M_ENABLE_REPRESENTATIONS
 	setting->reps = NULL;
+	#endif
 	
 	return NO_ERROR;
 }
@@ -101,7 +112,9 @@ int init_setting(m_setting *setting, const char *name, uint16_t level)
 	
 	setting->group = -1;
 	
+	#ifdef M_ENABLE_REPRESENTATIONS
 	setting->reps = NULL;
+	#endif
 	
 	return NO_ERROR;
 }
@@ -125,12 +138,14 @@ void clone_parameter(m_parameter *dest, m_parameter *src)
 	
 	dest->value = src->value;
 	dest->min = src->min;
+	dest->min_expr = src->min_expr;
 	dest->max = src->max;
+	dest->max_expr = src->max_expr;
 	
 	dest->factor = src->factor;
 	
 	dest->widget_type = src->widget_type;
-	dest->name 	= src->name;
+	dest->name = src->name;
 	dest->name_internal = src->name_internal;
 	dest->units = src->units;
 	
@@ -140,7 +155,11 @@ void clone_parameter(m_parameter *dest, m_parameter *src)
 	
 	dest->group = src->group;
 	
+	dest->id.parameter_id = src->id.parameter_id;
+	
+	#ifdef M_ENABLE_REPRESENTATIONS
 	dest->reps = NULL;
+	#endif
 }
 
 m_parameter *m_parameter_make_clone(m_parameter *src)
@@ -234,14 +253,21 @@ void gut_setting(m_setting *setting)
 int m_parameters_assign_ids(m_parameter_pll *list)
 {
 	int next_parameter_id = 0;
+	printf("m_parameters_assign_ids\n");
 	
 	m_parameter_pll *current = list;
 	
 	while (current)
 	{
-		if (current->data) current->data->id.parameter_id = next_parameter_id++;
+		if (current->data)
+		{
+			printf("Assigning ID %d...\n",
+				next_parameter_id);
+			current->data->id.parameter_id = next_parameter_id++;
+		}
 		current = current->next;
 	}
 	
+	printf("m_parameters_assign_ids done\n");
 	return NO_ERROR;
 }

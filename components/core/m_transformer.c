@@ -10,29 +10,15 @@ const char *TAG = "Transformer";
 
 IMPLEMENT_LINKED_PTR_LIST(m_transformer);
 
-char *transformer_type_name(uint16_t type)
-{
-	for (int i = 0; i < N_TRANSFORMER_TYPES; i++)
-	{
-		if (transformer_table[i].type == type)
-			return transformer_table[i].name;
-	}
-	
-	return NULL;
-}
-
 const char *m_transformer_name(m_transformer *trans)
 {
 	if (!trans)
-		return NULL;
+		return "(NULL)";
 	
-	if (trans->eff)
-	{
-		if (trans->eff->name)
-			return trans->eff->name;
-	}
+	if (!trans->eff)
+		return "(Unknown)";
 	
-	return transformer_type_name(trans->type);
+	return trans->eff->name;
 }
 
 
@@ -49,7 +35,9 @@ int init_transformer(m_transformer *trans)
 	trans->parameters = NULL;
 	trans->settings = NULL;
 	
+	#ifdef M_ENABLE_UI
 	trans->view_page = NULL;
+	#endif
 	trans->profile = NULL;
 	
 	init_parameter(&trans->wet_mix, "Wet Mix", 1.0, 0.0, 1.0);
@@ -59,7 +47,7 @@ int init_transformer(m_transformer *trans)
 	trans->band_mode.id.setting_id = TRANSFORMER_BAND_MODE_SID;
 	
 	trans->band_mode.n_options = 4;
-	trans->band_mode.options = malloc(sizeof(m_setting_option) * trans->band_mode.n_options);
+	trans->band_mode.options = m_alloc(sizeof(m_setting_option) * trans->band_mode.n_options);
 	
 	if (!trans->band_mode.options)
 		return ERR_ALLOC_FAIL;
@@ -86,7 +74,9 @@ int init_transformer(m_transformer *trans)
 	
 	trans->eff = NULL;
 	
+	#ifdef M_USE_FREERTOS
 	trans->mutex = xSemaphoreCreateMutex();
+	#endif
 	
 	return NO_ERROR;
 }
@@ -268,6 +258,7 @@ m_setting *transformer_add_setting(m_transformer *trans)
 	return setting;
 }
 
+#ifdef M_ENABLE_UI
 int transformer_init_ui_page(m_transformer *trans, m_ui_page *parent)
 {
 	printf("transformer_init_ui_page. trans = %p, parent = %p\n", trans, parent);
@@ -279,24 +270,20 @@ int transformer_init_ui_page(m_transformer *trans, m_ui_page *parent)
 	if (!trans->view_page)
 		return ERR_ALLOC_FAIL;
 	
-	printf("init_ui_page(%p)...\n", trans->view_page);
 	init_ui_page(trans->view_page);
-	printf("init_transformer_view(%p)...\n", trans->view_page);
 	init_transformer_view(trans->view_page);
-	printf("configure_transformer_view(%p, %p)...\n", trans->view_page, trans);
 	configure_transformer_view(trans->view_page, trans);
 	trans->view_page->parent = parent;
 	
-	printf("done transformer_init_ui_page\n");
 	return NO_ERROR;
 }
+#endif
 
 int clone_transformer(m_transformer *dest, m_transformer *src)
 {
 	if (!src || !dest)
 		return ERR_NULL_PTR;
 	
-	printf("Cloning transformer...\n");
 	uint16_t profile_id;
 	uint16_t transformer_id;
 	
@@ -349,9 +336,9 @@ int clone_transformer(m_transformer *dest, m_transformer *src)
 		current_setting = current_setting->next;
 	}
 	
+	#ifdef M_ENABLE_UI
 	src->view_page = NULL;
-	
-	printf("Clone transformer done\n");
+	#endif
 	
 	return NO_ERROR;
 }
@@ -369,8 +356,10 @@ void gut_transformer(m_transformer *trans)
 	
 	gut_setting(&trans->band_mode);
 	
+	#ifdef M_ENABLE_UI
 	free_transformer_view(trans->view_page);
 	trans->view_page = NULL;
+	#endif
 	
 	trans->id 		= 0;
 	trans->type 	= 0;
@@ -386,7 +375,9 @@ void free_transformer(m_transformer *trans)
 	m_free(trans->parameters);
 	m_free(trans->settings);
 	
+	#ifdef M_ENABLE_UI
 	free_transformer_view(trans->view_page);
+	#endif
 	
 	m_free(trans);
 }
@@ -426,52 +417,27 @@ m_setting *transformer_get_setting(m_transformer *trans, int n)
 	return current ? current->data : NULL;
 }
 
-int m_fpga_transfer_batch_append_transformer(
-		m_transformer *trans,
-		const m_eff_resource_report *cxt,
-		m_eff_resource_report *report,
-		m_fpga_transfer_batch *batch
-	)
-{
-	/*
-	if (!trans || !cxt || !report || !batch)
-		return ERR_NULL_PTR;
-	
-	trans->block_position = cxt->blocks;
-	
-	return m_fpga_transfer_batch_append_effect(trans->eff, cxt, report, trans->parameters, batch);
-	*/
-	return ERR_UNIMPLEMENTED;
-}
-
 int m_transformer_update_fpga_registers(m_transformer *trans)
 {
-	/*
+	#ifdef M_ENABLE_FPGA
+
 	if (!trans)
 		return ERR_NULL_PTR;
 	
 	if (!trans->eff)
 		return ERR_BAD_ARGS;
 	
-	m_parameter_pll *current = trans->parameters;
-	
-	while (current)
-	{
-		if (!current->data)
-			continue;
-		current = current->next;
-	}
-	
 	m_fpga_transfer_batch batch = m_new_fpga_transfer_batch();
 	
 	if (!batch.buf)
 		return ERR_ALLOC_FAIL;
 	
-	m_fpga_transfer_batch_append_effect_register_updates(&batch, trans->eff, trans->block_position, trans->parameters);
+	m_fpga_transfer_batch_append_effect_register_updates(&batch, trans->eff, trans->parameters, trans->block_position);
 	
 	int ret_val = m_fpga_queue_transfer_batch(batch);
 	
 	return ret_val;
-	*/
-	return ERR_UNIMPLEMENTED;
+	#else
+	return ERR_FEATURE_DISABLED;
+	#endif
 }

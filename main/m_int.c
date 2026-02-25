@@ -3,7 +3,6 @@
 #include <time.h>
 
 #include "bsp/esp32_p4_nano.h"
-
 #include "esp_task_wdt.h"
 
 #include "m_int.h"
@@ -66,6 +65,7 @@ void app_main()
 		save_settings_to_file(&global_cxt.settings, SETTINGS_FNAME);
 	
 	load_effects(&global_cxt);
+	init_transformer_selector_eff(&global_cxt.pages.transformer_selector);
 	//load_saved_profiles(&global_cxt);
 	
 	context_print_profiles(&global_cxt);
@@ -96,7 +96,7 @@ void app_main()
 	#endif
 	#endif
 	
-	init_footswitch_task();
+	//init_footswitch_task();
 	
 	while (1);
 }

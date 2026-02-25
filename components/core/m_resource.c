@@ -68,3 +68,12 @@ int m_resources_assign_handles(m_dsp_resource_pll *list)
 	
 	return NO_ERROR;
 }
+
+m_eff_resource_report empty_m_eff_resource_report()
+{
+	m_eff_resource_report result;
+	
+	memset(&result, 0, sizeof(result));
+	
+	return result;
+}

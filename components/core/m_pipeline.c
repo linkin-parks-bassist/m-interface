@@ -10,23 +10,6 @@ int init_m_pipeline(m_pipeline *pipeline)
 	return NO_ERROR;
 }
 
-m_transformer *m_pipeline_append_transformer_type(m_pipeline *pipeline, uint16_t type)
-{
-	if (!pipeline)
-		return NULL;
-	
-	m_transformer *trans = m_alloc(sizeof(m_transformer));
-	
-	if (!trans)
-		return NULL;
-	
-	init_transformer_of_type(trans, type);
-	
-	pipeline->transformers = m_transformer_pll_append(pipeline->transformers, trans);
-	
-	return trans;
-}
-
 m_transformer *m_pipeline_append_transformer_eff(m_pipeline *pipeline, m_effect_desc *eff)
 {
 	if (!pipeline || !eff)
@@ -116,6 +99,58 @@ int m_pipeline_remove_transformer(m_pipeline *pipeline, uint16_t id)
 	return ERR_INVALID_TRANSFORMER_ID;
 }
 
+int m_pipeline_move_transformer(m_pipeline *pipeline, int new_pos, int old_pos)
+{
+	if (!pipeline)
+		return ERR_NULL_PTR;
+	
+	if (!pipeline->transformers)
+		return ERR_BAD_ARGS;
+	
+	m_transformer_pll *target  = NULL;
+	
+	int i = 0;
+	m_transformer_pll *current = pipeline->transformers;
+	m_transformer_pll *prev    = NULL;
+	
+	while (current && i < old_pos)
+	{
+		prev = current;
+		current = current->next;
+		i++;
+	}
+	
+	if (!current)
+		return ERR_BAD_ARGS;
+	
+	target = current;
+	
+	if (prev)
+		prev->next = target->next;
+	else
+		pipeline->transformers = target->next;
+
+	i = 0;
+	prev = NULL;
+	current = pipeline->transformers;
+	
+	while (current && i < new_pos)
+	{
+		prev = current;
+		current = current->next;
+		i++;
+	}
+	
+	target->next = current;
+	
+	if (!prev)
+		pipeline->transformers = target;
+	else
+		prev->next = target;
+	
+	return NO_ERROR;
+}
+
 int m_pipeline_get_n_transformers(m_pipeline *pipeline)
 {
 	if (!pipeline)
@@ -181,39 +216,44 @@ void gut_pipeline(m_pipeline *pipeline)
 	pipeline->transformers = NULL;
 }
 
-m_fpga_transfer_batch m_pipeline_create_fpga_transfer_batch(m_pipeline *pipeline)
+int m_pipeline_create_fpga_transfer_batch(m_pipeline *pipeline, m_fpga_transfer_batch *batch)
 {
-	m_fpga_transfer_batch result;
+	if (!batch)
+		return ERR_NULL_PTR;
 	
-	result.buf 		= NULL;
-	result.buf_len 	= 0;
-	result.len 		= 0;
+	int ret_val = NO_ERROR;
 	
 	if (!pipeline)
-		return result;
-	
-	/*
-	m_fpga_resource_report res   = m_empty_fpga_resource_report();
-	m_fpga_resource_report local = m_empty_fpga_resource_report();
-	
-	result = m_new_fpga_transfer_batch();
-		
-	m_transformer_pll *current = pipeline->transformers;
-	m_transformer *trans;
-	
-	while (current)
 	{
-		trans = current->data;
-		
-		if (trans)
-		{
-			m_fpga_transfer_batch_append_transformer(trans, &res, &local, &result);
-			m_fpga_resource_report_integrate(&res, &local);
-		}
-		
-		current = current->next;
+		ret_val = ERR_BAD_ARGS;
+		goto return_nothing;
 	}
-	*/
 	
-	return result;
+	if (!pipeline->transformers)
+		goto return_nothing;
+	
+	m_fpga_transfer_batch result = m_new_fpga_transfer_batch();
+	
+	m_eff_resource_report rpt = empty_m_eff_resource_report();
+	
+	int pos = 0;
+	ret_val = m_fpga_batch_append_transformers(&result, pipeline->transformers, &rpt, &pos);
+	
+	if (ret_val != NO_ERROR)
+	{
+		m_free_fpga_transfer_batch(result);
+		goto return_nothing;
+	}
+	
+	*batch = result;
+	
+	return ret_val;
+	
+return_nothing:
+	batch->buf = NULL;
+	batch->buf_len = 0;
+	batch->len = 0;
+	batch->buffer_owned = 1;
+	
+	return ret_val;
 }

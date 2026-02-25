@@ -24,8 +24,7 @@ int init_transformer_selector_eff(m_ui_page *page)
 	
 	page->data_struct = str;
 	
-	if (!str)
-		return ERR_ALLOC_FAIL;
+	if (!str) return ERR_ALLOC_FAIL;
 	
 	str->buttons 	 = NULL;
 	str->button_list = NULL;
@@ -110,6 +109,11 @@ int configure_transformer_selector(m_ui_page *page, void *data)
 	
 	printf("success\n");
 	return NO_ERROR;
+}
+
+int refresh_transformer_selector(m_ui_page *page)
+{
+	return ERR_UNIMPLEMENTED;
 }
 
 void add_transformer_from_menu_eff(lv_event_t *e)

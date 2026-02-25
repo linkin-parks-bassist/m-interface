@@ -73,7 +73,18 @@ uint32_t m_block_instr_encode_resource_aware(m_block *block, const m_eff_resourc
 	}
 }
 
-int m_fpga_batch_append_block_instr(m_fpga_transfer_batch *batch, m_block *block, int pos, const m_eff_resource_report *res)
+int m_fpga_batch_append_block_number(m_fpga_transfer_batch *batch, int block)
+{
+	if (M_FPGA_N_BLOCKS > 256)
+		return m_fpga_batch_append_16(batch, block & 0xFFFF);
+	else
+		return m_fpga_batch_append(batch, block & 0xFF);
+	
+	return NO_ERROR;
+}
+
+
+int m_fpga_batch_append_block_instr(m_fpga_transfer_batch *batch, m_block *block, const m_eff_resource_report *res, int pos)
 {
 	if (!batch || !block)
 		return ERR_NULL_PTR;
@@ -87,7 +98,7 @@ int m_fpga_batch_append_block_instr(m_fpga_transfer_batch *batch, m_block *block
 	return NO_ERROR;
 }
 
-int m_fpga_batch_append_block_regs(m_fpga_transfer_batch *batch, m_block *block, int pos, m_parameter_pll *params)
+int m_fpga_batch_append_block_regs(m_fpga_transfer_batch *batch, m_block *block, m_parameter_pll *params, int pos)
 {
 	if (!batch || !block)
 		return ERR_NULL_PTR;
@@ -100,7 +111,7 @@ int m_fpga_batch_append_block_regs(m_fpga_transfer_batch *batch, m_block *block,
 		v = m_expression_compute(block->reg_0.expr, params);
 		s = float_to_q_nminus1(v, block->reg_0.format);
 		
-		m_fpga_batch_append(batch, COMMAND_WRITE_BLOCK_REG);
+		m_fpga_batch_append(batch, COMMAND_WRITE_BLOCK_REG_0);
 		m_fpga_batch_append_block_number(batch, pos);
 		m_fpga_batch_append_16(batch, s);
 	}
@@ -110,7 +121,7 @@ int m_fpga_batch_append_block_regs(m_fpga_transfer_batch *batch, m_block *block,
 		v = m_expression_compute(block->reg_1.expr, params);
 		s = float_to_q_nminus1(v, block->reg_1.format);
 		
-		m_fpga_batch_append(batch, COMMAND_WRITE_BLOCK_REG);
+		m_fpga_batch_append(batch, COMMAND_WRITE_BLOCK_REG_1);
 		m_fpga_batch_append_block_number(batch, pos);
 		m_fpga_batch_append_16(batch, s);
 	}
@@ -118,18 +129,77 @@ int m_fpga_batch_append_block_regs(m_fpga_transfer_batch *batch, m_block *block,
 	return NO_ERROR;
 }
 
-int m_fpga_batch_append_block(m_fpga_transfer_batch *batch, m_block *block, const m_eff_resource_report *res, int pos, m_parameter_pll *params)
+
+int m_fpga_batch_append_block_register_updates(m_fpga_transfer_batch *batch, m_block *block, m_parameter_pll *parameters, int pos)
 {
 	if (!batch || !block)
 		return ERR_NULL_PTR;
 	
-	m_fpga_batch_append_block_instr(batch, block, pos, res);
-	m_fpga_batch_append_block_regs(batch, block, pos, params);
+	float v;
+	m_fpga_sample_t s;
+	
+	if (block->reg_0.active)
+	{
+		if (block->reg_0.expr)
+		{
+			v = m_expression_compute(block->reg_0.expr, parameters);
+			
+			s = float_to_q_nminus1(v, block->reg_0.format);
+			
+			m_fpga_batch_append(batch, COMMAND_UPDATE_BLOCK_REG_0);
+			m_fpga_batch_append_block_number(batch, pos);
+			m_fpga_batch_append_16(batch, s);
+		}
+	}
+	
+	if (block->reg_1.active)
+	{
+		if (block->reg_1.expr)
+		{
+			v = m_expression_compute(block->reg_1.expr, parameters);
+			
+			s = float_to_q_nminus1(v, block->reg_1.format);
+			
+			m_fpga_batch_append(batch, COMMAND_UPDATE_BLOCK_REG_1);
+			m_fpga_batch_append_block_number(batch, pos);
+			m_fpga_batch_append_16(batch, s);
+		}
+	}
 	
 	return NO_ERROR;
 }
 
-int m_fpga_batch_append_blocks(m_fpga_transfer_batch *batch, m_block_pll *blocks, const m_eff_resource_report *res, int pos, m_parameter_pll *params)
+int m_fpga_transfer_batch_append_effect_register_updates(m_fpga_transfer_batch *batch, m_effect_desc *eff, m_parameter_pll *parameters, int pos)
+{
+	if (!batch || !eff)
+		return ERR_NULL_PTR;
+	
+	int i = 0;
+	m_block_pll *current = eff->blocks;
+	
+	while (current)
+	{
+		m_fpga_batch_append_block_register_updates(batch, current->data, parameters, pos + i);
+		
+		current = current->next;
+		i++;
+	}
+	
+	return NO_ERROR;
+}
+
+int m_fpga_batch_append_block(m_fpga_transfer_batch *batch, m_block *block, const m_eff_resource_report *res, m_parameter_pll *params, int pos)
+{
+	if (!batch || !block)
+		return ERR_NULL_PTR;
+	
+	m_fpga_batch_append_block_instr(batch, block, res, pos);
+	m_fpga_batch_append_block_regs(batch, block, params, pos);
+	
+	return NO_ERROR;
+}
+
+int m_fpga_batch_append_blocks(m_fpga_transfer_batch *batch, m_block_pll *blocks, const m_eff_resource_report *res, m_parameter_pll *params, int pos)
 {
 	if (!batch || !blocks)
 		return ERR_NULL_PTR;
@@ -141,7 +211,7 @@ int m_fpga_batch_append_blocks(m_fpga_transfer_batch *batch, m_block_pll *blocks
 	int ret_val;
 	while (current)
 	{
-		if (current->data && (ret_val = m_fpga_batch_append_block(batch, current->data, res, pos + i, params)) != NO_ERROR)
+		if (current->data && (ret_val = m_fpga_batch_append_block(batch, current->data, res, params, pos + i)) != NO_ERROR)
 			return ret_val;
 		
 		current = current->next;
@@ -184,13 +254,13 @@ int m_fpga_batch_append_resources(m_fpga_transfer_batch *batch, m_dsp_resource_p
 	return NO_ERROR;
 }
 
-int m_fpga_batch_append_eff_desc(m_fpga_transfer_batch *batch, m_effect_desc *eff, const m_eff_resource_report *res, int pos, m_parameter_pll *params)
+int m_fpga_batch_append_eff_desc(m_fpga_transfer_batch *batch, m_effect_desc *eff, const m_eff_resource_report *res, m_parameter_pll *params, int pos)
 {
 	if (!batch || !eff || !res)
 		return ERR_NULL_PTR;
 	
 	m_fpga_batch_append_resources(batch, eff->resources, res, params);
-	m_fpga_batch_append_blocks(batch, eff->blocks, res, pos, params);
+	m_fpga_batch_append_blocks(batch, eff->blocks, res, params, pos);
 	
 	return NO_ERROR;
 }
@@ -206,8 +276,9 @@ int m_fpga_batch_append_transformer(m_fpga_transfer_batch *batch, m_transformer 
 	m_parameter_pll *params = trans->parameters;
 	
 	trans->block_position = *pos;
+	printf("Updating transformer %p's block position to %d. New value: %d\n", trans, *pos, trans->block_position);
 	
-	m_fpga_batch_append_eff_desc(batch, trans->eff, res, *pos, params);
+	m_fpga_batch_append_eff_desc(batch, trans->eff, res, params, *pos);
 	
 	res->memory += trans->eff->res_rpt.memory;
 	res->delays += trans->eff->res_rpt.delays;
@@ -221,6 +292,7 @@ int m_fpga_batch_append_transformers(m_fpga_transfer_batch *batch, m_transformer
 {
 	if (!batch || !list || !res || !pos)
 		return ERR_NULL_PTR;
+	printf("m_fpga_batch_append_transformers\n");
 	
 	m_transformer_pll *current = list;
 	
@@ -230,6 +302,7 @@ int m_fpga_batch_append_transformers(m_fpga_transfer_batch *batch, m_transformer
 		current = current->next;
 	}
 	
+	printf("m_fpga_batch_append_transformers done\n");
 	return NO_ERROR;
 }
 
@@ -372,7 +445,7 @@ int m_fpga_batch_print(m_fpga_transfer_batch seq)
 						break;
 
 					case COMMAND_WRITE_BLOCK_REG_0:
-						printf("Command WRITE_BLOCK_REG");
+						printf("Command WRITE_BLOCK_REG_0");
 						state = 1;
 						ret_state = 4;
 						value = 0;
@@ -380,7 +453,7 @@ int m_fpga_batch_print(m_fpga_transfer_batch seq)
 						break;
 
 					case COMMAND_UPDATE_BLOCK_REG_0:
-						printf("Command UPDATE_BLOCK_REG");
+						printf("Command UPDATE_BLOCK_REG_0");
 						state = 1;
 						ret_state = 4;
 						value = 0;
@@ -388,7 +461,7 @@ int m_fpga_batch_print(m_fpga_transfer_batch seq)
 						break;
 
 					case COMMAND_WRITE_BLOCK_REG_1:
-						printf("Command WRITE_BLOCK_REG");
+						printf("Command WRITE_BLOCK_REG_1");
 						state = 1;
 						ret_state = 4;
 						value = 0;
@@ -396,7 +469,7 @@ int m_fpga_batch_print(m_fpga_transfer_batch seq)
 						break;
 
 					case COMMAND_UPDATE_BLOCK_REG_1:
-						printf("Command UPDATE_BLOCK_REG");
+						printf("Command UPDATE_BLOCK_REG_1");
 						state = 1;
 						ret_state = 4;
 						value = 0;
@@ -450,12 +523,9 @@ int m_fpga_batch_print(m_fpga_transfer_batch seq)
 				if (ctr == 3)
 				{
 					state = 0;
-					
 					instruction = (instruction << 8) | byte;
-					
 					printf("Word: %s; ", binary_print_32(instruction));
 					print_instruction(instruction);
-					
 					shift = range_bits(instruction, 5, 25);
 				}
 				else

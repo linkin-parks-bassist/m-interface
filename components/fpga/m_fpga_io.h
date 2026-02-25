@@ -3,7 +3,6 @@
 
 #define M_FPGA_SAMPLE_RATE 44100
 
-//#define PRINT_TRANSFER_BATCHES
 //#define PRINT_SPI_BYTES
 
 #define COMMAND_WRITE_BLOCK_INSTR 	0b10010000
@@ -70,5 +69,7 @@ int m_fpga_spi_init();
 // Floating point -> fixed point format conversion
 m_fpga_sample_t float_to_q_nminus1(float x, int shift);
 int16_t float_to_q15(float x);
+
+char *m_fpga_command_to_string(int command);
 
 #endif

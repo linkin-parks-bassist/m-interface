@@ -63,7 +63,10 @@ int profile_view_transformer_moved_cb(m_active_button *button)
 	#endif
 	
 	#ifdef USE_FPGA
-	m_profile_if_active_update_fpga(trans->profile);
+	m_profile *profile = trans->profile;
+	
+	if (profile)
+		m_profile_move_transformer(profile, button->index, button->prev_index);
 	#endif
 	
 	return NO_ERROR;
@@ -71,6 +74,7 @@ int profile_view_transformer_moved_cb(m_active_button *button)
 
 int profile_view_transformer_delete_cb(m_active_button *button)
 {
+	printf("profile_view_transformer_delete_cb\n");
 	if (!button)
 		return ERR_NULL_PTR;
 	
@@ -79,7 +83,17 @@ int profile_view_transformer_delete_cb(m_active_button *button)
 	if (!trans)
 		return ERR_BAD_ARGS;
 	
-	return m_profile_remove_transformer(trans->profile, trans->id);
+	int ret_val = m_profile_remove_transformer(trans->profile, trans->id);
+	
+	if (ret_val != NO_ERROR)
+		return ret_val;
+	
+	#ifdef USE_FPGA
+	ret_val = m_profile_if_active_update_fpga(trans->profile);
+	#endif
+	
+	printf("profile_view_transformer_delete_cb done\n");
+	return ret_val;
 }
 
 int init_profile_view(m_ui_page *page)
@@ -284,6 +298,7 @@ void profile_view_play_button_cb(lv_event_t *e)
 	
 	if (!str->profile)
 	{
+		printf("Profile is NULL\n");
 		set_active_profile(NULL);
 		return;
 	}

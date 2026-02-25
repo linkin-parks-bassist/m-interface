@@ -304,6 +304,71 @@ int m_token_ll_skip_ws(m_token_ll **list)
 	return NO_ERROR;
 }
 
+
+int m_token_ll_safe_append(m_token_ll **list_ptr, char *x, int line, int index)
+{
+	if (!list_ptr)
+		return ERR_NULL_PTR;
+	
+	m_token_ll *node = m_alloc(sizeof(m_token_ll));
+	
+	if (!node)
+		return ERR_ALLOC_FAIL;
+	
+	node->data = x;
+	node->line = line;
+	node->index = index;
+	node->next = NULL;
+	
+	if (*list_ptr)
+	{
+		m_token_ll *current = *list_ptr;
+		
+		while (current->next)
+			current = current->next;
+		
+		current->next = node;
+	}
+	else
+	{
+		*list_ptr = node;
+	}
+	
+	return NO_ERROR;
+}
+
+int m_token_ll_safe_aappend(m_token_ll **list_ptr, char *x, int line, int index)
+{
+	if (!list_ptr)
+		return ERR_NULL_PTR;
+	
+	m_token_ll *node = m_parser_alloc(sizeof(m_token_ll));
+	
+	if (!node)
+		return ERR_ALLOC_FAIL;
+	
+	node->data = x;
+	node->line = line;
+	node->index = index;
+	node->next = NULL;
+	
+	if (*list_ptr)
+	{
+		m_token_ll *current = *list_ptr;
+		
+		while (current->next)
+			current = current->next;
+		
+		current->next = node;
+	}
+	else
+	{
+		*list_ptr = node;
+	}
+	
+	return NO_ERROR;
+}
+
 int tokenizer_policy(char c, int *state_ptr)
 {
 	if (!state_ptr)
@@ -359,8 +424,8 @@ int tokenizer_policy(char c, int *state_ptr)
 	switch (state)
 	{
 		case TOKENIZER_STATE_IDLE:
-			if (c == ' ' || c == '\t')
-				return TOKENIZER_POLICY_DISCARD;
+			if (c == ' ' || c == '\t') return TOKENIZER_POLICY_DISCARD;
+			
 			if (char_is_letter(c))
 			{
 				*state_ptr = TOKENIZER_STATE_NAME;
@@ -436,56 +501,30 @@ int tokenizer_policy(char c, int *state_ptr)
 			if (c == '0' || c == '1' || c == '.')
 				return TOKENIZER_POLICY_ACCEPT;
 			
-			if (char_is_letter(c))
-			{
-				*state_ptr = TOKENIZER_STATE_NAME;
-				return TOKENIZER_POLICY_END_ACCEPT;
-			}
-			
-			return TOKENIZER_POLICY_COMPLAIN;
+			*state_ptr = TOKENIZER_STATE_IDLE;
+			return TOKENIZER_POLICY_SINGULAR;
 	}
 	
 	return TOKENIZER_POLICY_SINGULAR;
 }
 
-int m_token_ll_safe_append(m_token_ll **list_ptr, char *x, int line, int index)
+int m_tokenize_eff_file(m_eff_parsing_state *ps, FILE *file, m_token_ll **tokens)
 {
-	if (!list_ptr)
-		return ERR_NULL_PTR;
-	
-	m_token_ll *node = m_alloc(sizeof(m_token_ll));
-	
-	if (!node)
-		return ERR_ALLOC_FAIL;
-	
-	node->data = x;
-	node->line = line;
-	node->index = index;
-	node->next = NULL;
-	
-	if (*list_ptr)
-	{
-		m_token_ll *current = *list_ptr;
-		
-		while (current->next)
-			current = current->next;
-		
-		current->next = node;
-	}
-	else
-	{
-		*list_ptr = node;
-	}
-	
-	return NO_ERROR;
-}
-
-int m_tokenize_eff_file(FILE *file, m_token_ll **tokens)
-{
-	if (!file || !tokens)
+	if (!file || !tokens || !ps)
 		return ERR_NULL_PTR;
 	
 	char buf[256];
+		
+	int line = 1;
+	int line_char = 4;
+	int token_index = 0;
+	int new_line = 0;
+	int buf_pos = 0;
+	char c;
+	int C;
+	int policy;
+	
+	int state = TOKENIZER_STATE_IDLE;
 	
 	buf[0] = fgetc(file);
 	buf[1] = fgetc(file);
@@ -495,33 +534,29 @@ int m_tokenize_eff_file(FILE *file, m_token_ll **tokens)
 	
 	if (strcmp(ver_str, buf) != 0)
 	{
-		printf("ERROR: Version string \"v1.0\" required at start of file\n");
+		m_parser_error_at_line(ps, 1, "Version string \"%s\" required at start of file");
 		return ERR_BAD_ARGS;
 	}
+
 	
-	m_token_ll_safe_append(tokens, m_strndup(ver_str, 4), 0, 0);
-	
-	int line = 1;
-	int line_char = 0;//4;
-	int token_index = 0;
-	int new_line = 0;
-	int buf_pos = 0;
-	char c;
-	
-	int state = TOKENIZER_STATE_IDLE;
+	m_token_ll_safe_aappend(tokens, m_parser_strndup(ver_str, 4), line, 0);
 	
 	while (state != TOKENIZER_STATE_DONE)
 	{
-		c = fgetc(file);
+		C = fgetc(file);
+		c = (char)C;
 		
-		if (c == '\n')
+		if (C == EOF)
 		{
-			line = line + 1;
-			line_char = 0;
-			token_index = 0;
+			state = TOKENIZER_STATE_DONE;
+			policy = TOKENIZER_POLICY_DISCARD;
+		}
+		else
+		{
+			policy = tokenizer_policy(c, &state);
 		}
 		
-		switch (tokenizer_policy(c, &state))
+		switch (policy)
 		{
 			case TOKENIZER_POLICY_DISCARD:
 				break;
@@ -533,11 +568,13 @@ int m_tokenize_eff_file(FILE *file, m_token_ll **tokens)
 				if (buf_pos)
 				{
 					buf[buf_pos++] = 0;
-					m_token_ll_safe_append(tokens, m_strndup(buf, buf_pos), line, token_index);
+					m_token_ll_safe_aappend(tokens, m_parser_strndup(buf, buf_pos), line, token_index);
 					token_index += buf_pos;
 					buf_pos = 0;
 				}
-				m_token_ll_safe_append(tokens, m_strndup(&c, 1), line, token_index);
+				buf[0] = c;
+				buf[1] = 0;
+				m_token_ll_safe_aappend(tokens, m_parser_strndup(buf, 1), line, token_index);
 				token_index += 1;
 				break;
 			case TOKENIZER_POLICY_BEGIN:
@@ -548,22 +585,39 @@ int m_tokenize_eff_file(FILE *file, m_token_ll **tokens)
 				buf[buf_pos++] = c;
 			case TOKENIZER_POLICY_END_DISCARD:
 				buf[buf_pos++] = 0;
-				m_token_ll_safe_append(tokens, m_strndup(buf, buf_pos), line, token_index);
+				m_token_ll_safe_aappend(tokens, m_parser_strndup(buf, buf_pos), line, token_index);
 				token_index += buf_pos;
 				buf_pos = 0;
 				break;
 			case TOKENIZER_POLICY_COMPLAIN:
-				printf("Error: unexpected \"%c\" at line %d, index %d (tokenizer state: %d)\n", c, line, line_char, state);
+				if (c == '\n')
+				{
+					buf[0] = '\\';
+					buf[1] = 'n';
+					buf[2] = 0;
+				}
+				else
+				{
+					buf[0] = c;
+					buf[1] = 0;
+				}
+				m_parser_error_at_line(ps, line, "Unexpected \"%s\"", buf);
 				return ERR_BAD_ARGS;
 		}
 		
+		if (c == '\n')
+		{
+			line = line + 1;
+			line_char = 0;
+			token_index = 0;
+		}
 		line_char++;
 	}
 	
 	if (buf_pos)
 	{
 		buf[buf_pos++] = 0;
-		m_token_ll_safe_append(tokens, m_strndup(buf, buf_pos), line, token_index);
+		m_token_ll_safe_aappend(tokens, m_parser_strndup(buf, buf_pos), line, token_index);
 	}
 	
 	return NO_ERROR;
@@ -579,7 +633,7 @@ m_token_ll *m_token_span_to_ll(m_token_ll *start, m_token_ll *end)
 	
 	while (current && current != end)
 	{
-		m_token_ll_safe_append(&res, current->data, current->line, current->index);
+		m_token_ll_safe_aappend(&res, current->data, current->line, current->index);
 		current = current->next;
 	}
 	

@@ -1,7 +1,8 @@
-#ifndef DICTIONARY_H_
-#define DICTIONARY_H_
+#ifndef M_DICTIONARY_H_
+#define M_DICTIONARY_H_
 
 #define DICT_ENTRY_TYPE_NOT_FOUND 	22222
+#define DICT_ENTRY_TYPE_NOTHING 	22221
 #define DICT_ENTRY_TYPE_INT 		0
 #define DICT_ENTRY_TYPE_FLOAT 		1
 #define DICT_ENTRY_TYPE_STR 		2
@@ -51,9 +52,12 @@ int m_dictionary_lookup_dict (m_dictionary *dict, const char *name, m_dictionary
 
 void print_dict(m_dictionary *dict);
 
-m_parameter *m_extract_parameter_from_dict(m_dictionary *dict);
-int m_extract_delay_buffer_from_dict(m_dictionary *dict, m_dsp_resource *res);
-int m_extract_mem_from_dict(m_dictionary *dict, m_dsp_resource *res);
-m_dsp_resource *m_extract_resource_from_dict(m_dictionary *dict);
+struct m_eff_pasring_state;
+struct m_ast_node;
+
+m_parameter *m_extract_parameter_from_dict	(struct m_eff_parsing_state *ps, struct m_ast_node *dict_node, m_dictionary *dict);
+int m_extract_delay_buffer_from_dict		(struct m_eff_parsing_state *ps, struct m_ast_node *dict_node, m_dictionary *dict, m_dsp_resource *res);
+int m_extract_mem_from_dict					(struct m_eff_parsing_state *ps, struct m_ast_node *dict_node, m_dictionary *dict, m_dsp_resource *res);
+m_dsp_resource *m_extract_resource_from_dict(struct m_eff_parsing_state *ps, struct m_ast_node *dict_node, m_dictionary *dict);
 
 #endif

@@ -7,13 +7,14 @@
 
 typedef struct m_ast_node {
 	int type;
+	int line;
 	void *data;
 	
 	struct m_ast_node *child;
 	struct m_ast_node *next;
 } m_ast_node;
 
-typedef struct {
+typedef struct m_eff_parsing_state {
 	const char *fname;
 	const char *name;
 	char *contents;
@@ -33,6 +34,8 @@ typedef struct {
 	m_dsp_resource_pll *resources;
 	
 	m_ast_node *ast;
+	
+	int errors;
 } m_eff_parsing_state;
 
 extern const char *ver_str;
@@ -47,7 +50,25 @@ int m_parse_dictionary(m_eff_parsing_state *ps, m_dictionary **result, const cha
 m_effect_desc *m_read_eff_desc_from_file(char *fname);
 
 void m_parser_print_info   (m_eff_parsing_state *ps, const char *error_msg, ...);
-void m_parser_print_warning(m_eff_parsing_state *ps, const char *error_msg, ...);
-void m_parser_print_error  (m_eff_parsing_state *ps, const char *error_msg, ...);
+void m_parser_warn(m_eff_parsing_state *ps, const char *error_msg, ...);
+void m_parser_error  (m_eff_parsing_state *ps, const char *error_msg, ...);
+
+void m_parser_print_info_at (m_eff_parsing_state *ps, m_token_ll *token, const char *error_msg, ...);
+void m_parser_warn_at		(m_eff_parsing_state *ps, m_token_ll *token, const char *error_msg, ...);
+void m_parser_error_at  	(m_eff_parsing_state *ps, m_token_ll *token, const char *error_msg, ...);
+
+void m_parser_print_info_at_line(m_eff_parsing_state *ps, int line, const char *error_msg, ...);
+void m_parser_warn_at_line		(m_eff_parsing_state *ps, int line, const char *error_msg, ...);
+void m_parser_error_at_line  	(m_eff_parsing_state *ps, int line, const char *error_msg, ...);
+
+void m_parser_print_info_at_node(m_eff_parsing_state *ps, m_ast_node *node, const char *error_msg, ...);
+void m_parser_warn_at_node		(m_eff_parsing_state *ps, m_ast_node *node, const char *error_msg, ...);
+void m_parser_error_at_node  	(m_eff_parsing_state *ps, m_ast_node *node, const char *error_msg, ...);
+
+int m_eff_parser_init_mempool();
+int m_eff_parser_deinit_mempool();
+
+void *m_parser_alloc(size_t size);
+char *m_parser_strndup(const char *str, int n);
 
 #endif

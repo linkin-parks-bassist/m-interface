@@ -1,12 +1,6 @@
 #ifndef M_INT_PARAMETER_H_
 #define M_INT_PARAMETER_H_
 
-#include <stddef.h>
-#include <stdint.h>
-
-#include "m_linked_list.h"
-#include "m_representation.h"
-
 #define PARAM_NAM_ENG_MAX_LEN 254
 
 #define PARAMETER_SCALE_LINEAR		0
@@ -49,7 +43,9 @@ typedef struct m_parameter
 	
 	int group;
 	
+	#ifdef M_ENABLE_REPRESENTATIONS
 	m_representation_pll *reps;
+	#endif
 } m_parameter;
 
 typedef struct m_setting_option
@@ -97,7 +93,9 @@ typedef struct m_setting
 	
 	int group;
 	
+	#ifdef M_ENABLE_REPRESENTATIONS
 	m_representation_pll *reps;
+	#endif
 } m_setting;
 
 DECLARE_LINKED_PTR_LIST(m_parameter);

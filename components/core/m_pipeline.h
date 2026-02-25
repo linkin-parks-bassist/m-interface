@@ -1,7 +1,6 @@
 #ifndef M_INT_PIPELINE_H_
 #define M_INT_PIPELINE_H_
 
-#include "m_transformer.h"
 
 typedef struct
 {
@@ -10,16 +9,15 @@ typedef struct
 
 int init_m_pipeline(m_pipeline *pipeline);
 
-m_transformer *m_pipeline_append_transformer_type(m_pipeline *pipeline, uint16_t type);
 m_transformer *m_pipeline_append_transformer_eff(m_pipeline *pipeline, m_effect_desc *eff);
 
+int m_pipeline_move_transformer(m_pipeline *pipeline, int new_pos, int old_pos);
 int m_pipeline_remove_transformer(m_pipeline *pipeline, uint16_t id);
-
 int m_pipeline_get_n_transformers(m_pipeline *pipeline);
 
 int clone_pipeline(m_pipeline *dest, m_pipeline *src);
 void gut_pipeline(m_pipeline *pipeline);
 
-m_fpga_transfer_batch m_pipeline_create_fpga_transfer_batch(m_pipeline *pipeline);
+int m_pipeline_create_fpga_transfer_batch(m_pipeline *pipeline, m_fpga_transfer_batch *batch);
 
 #endif

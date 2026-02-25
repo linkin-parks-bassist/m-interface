@@ -1,4 +1,5 @@
 idf_component_register(SRCS "m_alloc.c"
+							"m_bump_arena.c"
 							"m_block.c"
 							"m_context.c"
 							"m_eff_desc.c"
@@ -6,7 +7,9 @@ idf_component_register(SRCS "m_alloc.c"
 							"m_files.c"
 							"m_hfunc.c"
 							"m_lv_log.c"
+							"m_resource.c"
 							"m_parameter.c"
+							"m_expression.c"
 							"m_param_update.c"
 							"m_pipeline.c"
 							"m_profile.c"
@@ -21,5 +24,5 @@ idf_component_register(SRCS "m_alloc.c"
 							driver
 							drivers
 							ui
-							fpga_comms
+							fpga
 					INCLUDE_DIRS "." "../../main" "../" "../ui" "../drivers" "../parser")

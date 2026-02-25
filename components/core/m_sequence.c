@@ -14,7 +14,9 @@ int init_m_sequence(m_sequence *sequence)
 	sequence->unsaved_changes = 1;
 	sequence->position = NULL;
 	
+	#ifdef M_ENABLE_UI
 	sequence->view_page = NULL;
+	#endif
 	
 	sequence->fname = NULL;
 	
@@ -165,6 +167,8 @@ void free_sequence(m_sequence *sequence)
 
 int m_sequence_add_menu_listing(m_sequence *sequence, m_menu_item *listing)
 {
+	
+	#ifdef M_ENABLE_UI
 	if (!sequence || !listing)
 		return ERR_NULL_PTR;
 	
@@ -176,6 +180,9 @@ int m_sequence_add_menu_listing(m_sequence *sequence, m_menu_item *listing)
 		return ERR_ALLOC_FAIL;
 	
 	return NO_ERROR;
+	#else
+	return ERR_FEATURE_DISABLED;
+	#endif
 }
 
 int m_sequence_begin(m_sequence *sequence)
@@ -371,6 +378,7 @@ int m_sequence_activate_at(m_sequence *sequence, m_profile *profile)
 
 int m_sequence_add_representation(m_sequence *sequence, m_representation *rep)
 {
+	#ifdef M_ENABLE_UI
 	if (!sequence)
 		return ERR_NULL_PTR;
 	
@@ -382,10 +390,14 @@ int m_sequence_add_representation(m_sequence *sequence, m_representation *rep)
 		return ERR_ALLOC_FAIL;
 	
 	return NO_ERROR;
+	#else
+	return ERR_FEATURE_DISABLED;
+	#endif
 }
 
 int m_sequence_update_representations(m_sequence *sequence)
 {
+	#ifdef M_ENABLE_REPRESENTATIONS
 	if (!sequence)
 		return ERR_NULL_PTR;
 	
@@ -393,4 +405,7 @@ int m_sequence_update_representations(m_sequence *sequence)
 		queue_representation_list_update(sequence->representations);
 	
 	return NO_ERROR;
+	#else
+	return ERR_FEATURE_DISABLED;
+	#endif
 }

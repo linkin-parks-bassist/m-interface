@@ -35,8 +35,6 @@ int init_transformer_settings_page(m_ui_page *page)
 
 int configure_transformer_settings_page(m_ui_page *page, void *data)
 {
-	printf("configure_transformer_settings_page(page = %p, data = %p)\n", page, data);
-	
 	if (!page)
 		return ERR_NULL_PTR;
 	
@@ -63,7 +61,6 @@ int configure_transformer_settings_page(m_ui_page *page, void *data)
 	
 	page->configured = 1;
 	
-	printf("configure_transformer_settings_page done\n");
 	return NO_ERROR;
 }
 

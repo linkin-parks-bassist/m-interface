@@ -754,6 +754,22 @@ int init_main_menu(m_ui_page *page)
 	return NO_ERROR;
 }
 
+void m_msc_button_cb(void *arg)
+{
+	int ret_val = m_sd_toggle_msc();
+	
+	m_button *button = (m_button*)arg;
+	
+	if (sd_msc_mode)
+	{
+		//m_button_set_label(button, "Mount SD card");
+	}
+	else
+	{
+		//m_button_set_label(button, "Unmount SD card");
+	}
+}
+
 int configure_main_menu(m_ui_page *page, void *data)
 {
 	if (!page)
@@ -784,17 +800,21 @@ int configure_main_menu(m_ui_page *page, void *data)
 	
 	init_button(&str->profiles_button);
 	init_button(&str->sequences_button);
+	init_button(&str->msc_button);
 	init_danger_button(&str->erase_sd_card_button, erase_sd_card_void_cb, NULL, page);
 	
 	m_button_set_label(&str->profiles_button, "Profiles");
 	m_button_disable_alignment(&str->profiles_button);
 	m_button_set_label(&str->sequences_button, "Sequences");
 	m_button_disable_alignment(&str->sequences_button);
+	m_button_set_label(&str->msc_button, "Unmount SD card");
+	m_button_disable_alignment(&str->msc_button);
 	m_button_set_label(&str->erase_sd_card_button.button, "Erase SD card");
 	m_button_disable_alignment(&str->erase_sd_card_button.button);
 	
 	button_set_clicked_cb( &str->profiles_button, enter_ui_page_forwards_cb, &global_cxt.pages.main_sequence_view);
 	button_set_clicked_cb(&str->sequences_button, enter_ui_page_forwards_cb, &global_cxt.pages.sequence_list);
+	button_set_clicked_cb(&str->msc_button, m_msc_button_cb, &str->msc_button);
 	
 	/*
 	m_menu_item *item = create_pad_menu_item(20);
@@ -880,8 +900,10 @@ int create_main_menu_ui(m_ui_page *page)
 	lv_obj_remove_style_all(str->top_pad);
 	lv_obj_set_size(str->top_pad, LV_PCT(100), 20);
 	
-	create_button_ui(&str->profiles_button, page->container);
+	create_button_ui(&str->profiles_button,  page->container);
 	create_button_ui(&str->sequences_button, page->container);
+	create_button_ui(&str->msc_button, 		 page->container);
+	
 	m_danger_button_create_ui(&str->erase_sd_card_button, page->container);
 	
 	page->ui_created = 1;

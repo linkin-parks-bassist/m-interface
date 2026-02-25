@@ -1,11 +1,6 @@
 #ifndef M_INT_SEQUENCE_H_
 #define M_INT_SEQUENCE_H_
 
-#include <lvgl.h>
-#include "m_ui.h"
-#include "m_linked_list.h"
-#include "m_representation.h"
-#include "m_profile.h"
 
 typedef struct seq_profile_ll
 {
@@ -22,7 +17,9 @@ typedef struct m_sequence
 	seq_profile_ll *profiles;
 	seq_profile_ll *position;
 	
+	#ifdef M_ENABLE_UI
 	m_ui_page *view_page;
+	#endif
 	
 	struct m_menu_item_pll *listings;
 	char *fname;

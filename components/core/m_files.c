@@ -931,22 +931,39 @@ int load_effects(m_context *cxt)
 	m_effect_desc *eff = NULL;
 	int ret_val = NO_ERROR;
 	
+	if (current)
+	{
+		ret_val = m_eff_parser_deinit_mempool();
+		if (ret_val != NO_ERROR)
+		{
+			return ret_val;
+		}
+	}
+	
 	while (current)
 	{
+		printf("Attempting to load effect from file \"%s\"...\n", current->data);
+		
 		eff = m_read_eff_desc_from_file(current->data);
+		
+		printf("m_read_eff_desc_from_file returned the pointer %p\n", eff);
 		
 		if (eff)
 		{
+			printf("Obtained an effect descriptor by the name of \"%s\" ! Adding it to the list %p...\n",
+				eff->name, &cxt->effects);
 			ret_val = m_effect_desc_pll_safe_append(&cxt->effects, eff);
 			
 			if (ret_val != NO_ERROR)
 			{
-				printf("Error adding effect \"%s\"\n", eff->name);
+				printf("Error adding effect \"%s\"; error %s\n", eff->name, m_error_code_to_string(ret_val));
 			}
 		}
 		
 		current = current->next;
 	}
+	
+	m_eff_parser_deinit_mempool();
 	
 	return NO_ERROR;
 }

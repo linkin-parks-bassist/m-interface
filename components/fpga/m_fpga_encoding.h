@@ -15,6 +15,9 @@ int m_fpga_batch_append_block_number(m_fpga_transfer_batch *batch, int block);
 uint32_t m_block_instr_encode_resource_aware(m_block *block, const m_eff_resource_report *res);
 
 int m_fpga_batch_append_transformer(m_fpga_transfer_batch *batch, m_transformer *trans, m_eff_resource_report *res, int *pos);
+int m_fpga_transfer_batch_append_effect_register_updates(m_fpga_transfer_batch *batch, m_effect_desc *eff, m_parameter_pll *parameters, int pos);
 int m_fpga_batch_append_transformers(m_fpga_transfer_batch *batch, m_transformer_pll *list, m_eff_resource_report *res, int *pos);
+
+int m_fpga_batch_print(m_fpga_transfer_batch seq);
 
 #endif

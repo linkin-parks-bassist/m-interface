@@ -41,6 +41,9 @@ void m_fpga_comms_task(void *param)
 		switch (msg.type)
 		{
 			case M_FPGA_MSG_TYPE_BATCH:
+				#ifdef PRINT_TRANSFER_BATCHES
+				m_fpga_batch_print(msg.data.batch);
+				#endif
 				m_fpga_transfer_batch_send(msg.data.batch);
 				m_free_fpga_transfer_batch(msg.data.batch);
 				break;
@@ -54,6 +57,9 @@ void m_fpga_comms_task(void *param)
 				break;
 				
 			case M_FPGA_MSG_TYPE_COMMAND:
+				#ifdef PRINT_COMMANDS
+				printf("send FPGA command %s\n", m_fpga_command_to_string(msg.data.command));
+				#endif
 				m_fpga_send_byte(msg.data.command);
 				break;
 		}
@@ -67,19 +73,24 @@ static inline int m_fpga_queue_msg(m_fpga_msg msg)
 	while (!initialised);
 	
 	if (xQueueSend(fpga_msg_queue, (void*)&msg, (TickType_t)1) != pdPASS)
+	{
 		return ERR_QUEUE_SEND_FAILED;
-	
+	}
 	return NO_ERROR;
 }
 
 int m_fpga_queue_transfer_batch(m_fpga_transfer_batch batch)
-{	
+{
+	printf("m_fpga_queue_transfer_batch. len = %d, buf = %p, buf_len = %d, buf_owned = %d\n",
+		batch.len, batch.buf, batch.buf_len, batch.buffer_owned);
 	m_fpga_msg msg;
 	
 	msg.type = M_FPGA_MSG_TYPE_BATCH;
 	msg.data.batch = batch;
 	
-	return m_fpga_queue_msg(msg);
+	int ret_val = m_fpga_queue_msg(msg);
+	
+	return ret_val;
 }
 
 int m_fpga_queue_input_gain_set(float gain_db)
@@ -119,7 +130,9 @@ int m_fpga_queue_pipeline_swap()
 	msg.type = M_FPGA_MSG_TYPE_COMMAND;
 	msg.data.command = COMMAND_SWAP_PIPELINES;
 	
-	return m_fpga_queue_msg(msg);
+	int ret_val = m_fpga_queue_msg(msg);
+	
+	return ret_val;
 }
 
 int m_fpga_queue_pipeline_reset()

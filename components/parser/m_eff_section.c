@@ -17,9 +17,9 @@ int get_section_start_score(char *str, int current_score)
 	return 0;
 }
 
-int m_parameters_section_extract(m_parameter_pll **list, m_ast_node *sect)
+int m_parameters_section_extract(m_eff_parsing_state *ps, m_parameter_pll **list, m_ast_node *sect)
 {
-	if (!list || !sect)
+	if (!list || !sect | !ps)
 		return ERR_NULL_PTR;
 	
 	m_eff_desc_file_section *sec = (m_eff_desc_file_section*)sect->data;
@@ -36,7 +36,7 @@ int m_parameters_section_extract(m_parameter_pll **list, m_ast_node *sect)
 	{
 		if (dict->entries[i].type == DICT_ENTRY_TYPE_SUBDICT)
 		{
-			param = m_extract_parameter_from_dict(dict->entries[i].value.val_dict);
+			param = m_extract_parameter_from_dict(ps, sect, dict->entries[i].value.val_dict);
 			
 			if (param)
 				m_parameter_pll_safe_append(list, param);
@@ -46,9 +46,9 @@ int m_parameters_section_extract(m_parameter_pll **list, m_ast_node *sect)
 	return NO_ERROR;
 }
 
-int m_resources_section_extract(m_dsp_resource_pll **list, m_ast_node *sect)
+int m_resources_section_extract(m_eff_parsing_state *ps, m_dsp_resource_pll **list, m_ast_node *sect)
 {
-	if (!list || !sect)
+	if (!list || !sect || !ps)
 		return ERR_NULL_PTR;
 	
 	m_eff_desc_file_section *sec = (m_eff_desc_file_section*)sect->data;
@@ -65,7 +65,13 @@ int m_resources_section_extract(m_dsp_resource_pll **list, m_ast_node *sect)
 	{
 		if (dict->entries[i].type == DICT_ENTRY_TYPE_SUBDICT)
 		{
-			res = m_extract_resource_from_dict(dict->entries[i].value.val_dict);
+			res = m_extract_resource_from_dict(ps, sect, dict->entries[i].value.val_dict);
+			
+			if (!res)
+			{
+				m_parser_error_at_node(ps, sect, "Failed to interpret resource \"%s\"", dict->entries[i].name);
+				return ERR_BAD_ARGS;
+			}
 			
 			if (res)
 				m_dsp_resource_pll_safe_append(list, res);

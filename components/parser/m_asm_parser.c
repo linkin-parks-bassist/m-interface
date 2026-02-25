@@ -61,7 +61,7 @@ int m_parse_asm_arg(m_eff_parsing_state *ps, m_asm_arg *arg)
 			
 			if (!valid)
 			{
-				printf("Error: invalid argument \"%s\"\n", current->data);
+				m_parser_error_at(ps, current, "Invalid argument \"%s\"");
 				ret_val = ERR_BAD_ARGS;
 				goto asm_parse_arg_fin;
 			}
@@ -81,14 +81,22 @@ int m_parse_asm_arg(m_eff_parsing_state *ps, m_asm_arg *arg)
 			
 			if (!tok || strcmp(tok->data, "\n") == 0)
 			{
-				printf("Error: missing \'%s\'\n", DQ_CODELIMITER);
+				m_parser_error_at(ps, current, "Missing \"%s\"", DQ_CODELIMITER);
 				ret_val = ERR_BAD_ARGS;
 				goto asm_parse_arg_fin;
 			}
 			
 		} while (strcmp(tok->data, DQ_CODELIMITER) != 0);
 		
-		if (arg) arg->expr = new_m_expression_from_tokens(current->next, tok);
+		if (arg)
+		{
+			arg->expr = m_parse_expression(ps, current->next, tok);
+			if (!arg->expr)
+			{
+				ret_val = ERR_BAD_ARGS;
+				goto asm_parse_arg_fin;
+			}
+		}
 		
 		if (tok)
 			current = tok;
@@ -103,7 +111,7 @@ int m_parse_asm_arg(m_eff_parsing_state *ps, m_asm_arg *arg)
 		
 		if (!current || !current->data || strcmp(current->data, "\n") == 0)
 		{
-			printf("Error: missing resource identifier\n");
+			m_parser_error_at(ps, current, "Missing resource identifier");
 			ret_val = ERR_BAD_ARGS;
 			goto asm_parse_arg_fin;
 		}
@@ -132,7 +140,7 @@ int m_parse_asm_arg(m_eff_parsing_state *ps, m_asm_arg *arg)
 		}
 		else
 		{
-			printf("Error: resource \"%s\" not found\n", current->data);
+			m_parser_error_at(ps, current, "Resource \"%s\" not found", current->data);
 			ret_val = ERR_BAD_ARGS;
 			goto asm_parse_arg_fin;
 		}

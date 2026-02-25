@@ -3,12 +3,7 @@
 
 #define MAX_N_PROFILES 256
 
-#include "m_sequence.h"
-#include "m_linked_list.h"
-#include "m_profile.h"
-#include "m_settings.h"
 
-#include "m_parameter.h"
 
 typedef m_profile_pll profile_ll;
 
@@ -21,7 +16,9 @@ typedef struct m_context
 	m_profile *active_profile;
 	m_profile *default_profile;
 	
+	#ifdef M_ENABLE_UI
 	m_global_pages pages;
+	#endif
 	
 	profile_ll *profiles;
 	sequence_ll *sequences;
@@ -37,7 +34,9 @@ typedef struct m_context
 	m_effect_desc_pll *effects;
 } m_context;
 
+#ifdef M_ENABLE_GLOBAL_CONTEXT
 extern m_context global_cxt;
+#endif
 
 int m_init_context(m_context *cxt);
 int m_context_init_effect_list(m_context *cxt);

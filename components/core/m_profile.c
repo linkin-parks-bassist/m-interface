@@ -15,7 +15,10 @@ int init_m_profile(m_profile *profile)
 	
 	int ret_val = init_m_pipeline(&profile->pipeline);
 	
+	#ifdef M_ENABLE_UI
 	profile->view_page = NULL;
+	#endif
+	
 	profile->name = NULL;
 	profile->id = next_preliminary_profile_id++;
 	
@@ -24,7 +27,13 @@ int init_m_profile(m_profile *profile)
 	profile->active = 0;
 	profile->unsaved_changes = 1;
 	
+	#ifdef M_ENABLE_SEQUENCES
+	#ifdef M_ENABLE_GLOBAL_CONTEXT
 	profile->sequence = &global_cxt.main_sequence;
+	#else
+	profile->sequence = NULL;
+	#endif
+	#endif
 	
 	if (ret_val != NO_ERROR)
 		return ret_val;
@@ -33,7 +42,9 @@ int init_m_profile(m_profile *profile)
 	profile->volume.units = " dB";
 	profile->volume.id = (m_parameter_id){.profile_id = 0, .transformer_id = 0xFFFF, .parameter_id = 0};
 	
-	profile->representations 		= NULL;
+	#ifdef M_ENABLE_REPRESENTATIONS
+	profile->representations = NULL;
+	#endif
 	
 	return NO_ERROR;
 }
@@ -77,6 +88,7 @@ int m_profile_set_inactive(m_profile *profile)
 
 int m_profile_add_representation(m_profile *profile, m_representation *rep)
 {
+	#ifdef M_ENABLE_REPRESENTATIONS
 	if (!profile || !rep)
 		return ERR_NULL_PTR;
 	
@@ -90,26 +102,33 @@ int m_profile_add_representation(m_profile *profile, m_representation *rep)
 	printf("profile->representations = %p\n", profile->representations);
 	
 	return NO_ERROR;
+	#else
+	return ERR_FEATURE_DISABLED;
+	#endif
 }
 
 int m_profile_update_representations(m_profile *profile)
 {
+	#ifdef M_ENABLE_REPRESENTATIONS
 	if (!profile)
 		return ERR_NULL_PTR;
 	
 	if (profile->representations)
 		queue_representation_list_update(profile->representations);
 	
+	#endif
 	return NO_ERROR;
 }
 
 int m_profile_remove_representation(m_profile *profile, m_representation *rep)
 {
+	#ifdef M_ENABLE_REPRESENTATIONS
 	if (!profile)
 		return ERR_NULL_PTR;
 	
 	profile->representations = m_representation_pll_remove(profile->representations, rep);
 	
+	#endif
 	return NO_ERROR;
 }
 
@@ -143,21 +162,6 @@ int m_profile_set_default_name_from_id(m_profile *profile)
 	return NO_ERROR;
 }
 
-m_transformer *m_profile_append_transformer_type(m_profile *profile, uint16_t type)
-{
-	if (!profile)
-		return NULL;
-	
-	m_transformer *trans = m_pipeline_append_transformer_type(&profile->pipeline, type);
-	
-	if (!trans)
-		return NULL;
-	
-	trans->profile = profile;
-	
-	return trans;
-}
-
 m_transformer *m_profile_append_transformer_eff(m_profile *profile, m_effect_desc *eff)
 {
 	if (!profile)
@@ -178,7 +182,7 @@ m_transformer *m_profile_append_transformer_eff(m_profile *profile, m_effect_des
 
 int m_profile_remove_transformer(m_profile *profile, uint16_t id)
 {
-	printf("cxt_remove_transformer\n");
+	printf("m_profile_remove_transformer\n");
 	if (!profile)
 		return ERR_NULL_PTR;
 	
@@ -186,7 +190,26 @@ int m_profile_remove_transformer(m_profile *profile, uint16_t id)
 	
 	m_profile_if_active_update_fpga(profile);
 	
-	printf("cxt_remove_transformer done. ret_val = %s\n", m_error_code_to_string(ret_val));
+	printf("m_profile_remove_transformer done. ret_val = %s\n", m_error_code_to_string(ret_val));
+	return ret_val;
+}
+
+int m_profile_move_transformer(m_profile *profile, int new_pos, int old_pos)
+{
+	int ret_val = NO_ERROR;
+	
+	if (profile)
+	{
+		if ((ret_val = m_pipeline_move_transformer(&profile->pipeline, new_pos, old_pos)) != NO_ERROR)
+			return ret_val;
+		
+		ret_val = m_profile_if_active_update_fpga(profile);
+	}
+	else
+	{
+		ret_val = ERR_NULL_PTR;
+	}
+	
 	return ret_val;
 }
 
@@ -206,7 +229,9 @@ int clone_profile(m_profile *dest, m_profile *src)
 	clone_pipeline(&dest->pipeline, &src->pipeline);
 	
 	printf("Done!\n");
+	#ifdef M_ENABLE_UI
 	dest->view_page = NULL;
+	#endif
 	
 	return NO_ERROR;
 }
@@ -216,11 +241,13 @@ void gut_profile(m_profile *profile)
 	if (!profile)
 		return;
 	
+	#ifdef M_ENABLE_UI
 	printf("Gut view page %p...\n", profile->view_page);
 	if (profile->view_page)
 		profile->view_page->free_all(profile->view_page);
 	
 	profile->view_page = NULL;
+	#endif
 	
 	printf("Gut name %p...\n", profile->name);
 	if (profile->name)
@@ -267,8 +294,10 @@ void new_profile_receive_id(m_message msg, m_response response)
 }
 #endif
 
+	
 m_profile *create_new_profile_with_teensy()
 {
+	#ifdef USE_TEENSY
 	m_profile *new_profile = m_context_add_profile_rp(&global_cxt);
 	
 	if (!new_profile)
@@ -277,20 +306,22 @@ m_profile *create_new_profile_with_teensy()
 		return NULL;
 	}
 	
-	#ifdef USE_TEENSY
 	m_message msg = create_m_message_nodata(M_MESSAGE_CREATE_PROFILE);
 	
 	msg.callback = new_profile_receive_id;
 	msg.cb_arg = new_profile;
 	
 	queue_msg_to_teensy(msg);
-	#endif
 	
 	create_profile_view_for(new_profile);
 
 	return new_profile;
+	#else
+	return NULL;
+	#endif
 }
 
+#ifdef M_ENABLE_GLOBAL_CONTEXT
 m_profile *create_new_profile()
 {
 	m_profile *new_profile = m_context_add_profile_rp(&global_cxt);
@@ -301,29 +332,44 @@ m_profile *create_new_profile()
 		return NULL;
 	}
 	
+	#ifdef M_ENABLE_UI
 	create_profile_view_for(new_profile);
+	#endif
 
 	return new_profile;
 }
+#endif
 
 int m_profile_save(m_profile *profile)
 {
+	#ifdef M_ENABLE_SDCARD
 	if (!profile)
 		return ERR_NULL_PTR;
-	
-	printf("m_profile_save\n");
 	
 	int ret_val = save_profile(profile);
 	
 	if (ret_val == NO_ERROR)
 	{
 		profile->unsaved_changes = 0;
+		#ifdef M_ENABLE_REPRESENTATIONS
 		m_profile_update_representations(profile);
+		#endif
 	}
 	
-	printf("m_profile_save done\n");
-	
 	return NO_ERROR;
+	#else
+	return ERR_FEATURE_DISABLED;
+	#endif
+}
+
+int m_profile_create_fpga_transfer_batch(m_profile *profile, m_fpga_transfer_batch *batch)
+{
+	if (!profile || !batch)
+		return ERR_NULL_PTR;
+	
+	int ret_val = m_pipeline_create_fpga_transfer_batch(&profile->pipeline, batch);
+	
+	return ret_val;
 }
 
 int m_profile_program_fpga(m_profile *profile)
@@ -331,11 +377,34 @@ int m_profile_program_fpga(m_profile *profile)
 	if (!profile)
 		return ERR_NULL_PTR;
 	
-	/*
-	m_fpga_transfer_batch send_seq = m_pipeline_create_fpga_transfer_batch(&profile->pipeline);
-	m_fpga_queue_transfer_batch(send_seq);
-	m_fpga_queue_pipeline_swap();
-	*/
+	m_fpga_transfer_batch batch;
+	
+	printf("m_profile_program_fpga\n");
+	int ret_val = m_pipeline_create_fpga_transfer_batch(&profile->pipeline, &batch);
+	
+	printf("m_pipeline_create_fpga_transfer_batch returned with error code %s\n", m_error_code_to_string(ret_val));
+	if (ret_val != NO_ERROR)
+		return ret_val;
+	
+	#ifdef M_FPGA_SIMULATED
+	printf("M_FPGA_SIMULATED defined. Sendn't\n");
+	return ERR_FEATURE_DISABLED;
+	#else
+	printf("Queueing transfer batch...\n");
+	if ((ret_val = m_fpga_queue_transfer_batch(batch)) != NO_ERROR)
+	{
+		printf("An error was encountered: %s\n", m_error_code_to_string(ret_val));
+		return ret_val;
+	}
+	
+	printf("Queueing pipeline swap...\n");
+	if ((ret_val = m_fpga_queue_pipeline_swap()) != NO_ERROR)
+	{
+		printf("An error was encountered: %s\n", m_error_code_to_string(ret_val));
+		return ret_val;
+	}
+	#endif
+	
 	return NO_ERROR;
 }
 
@@ -347,8 +416,6 @@ int m_profile_if_active_update_fpga(m_profile *profile)
 	if (!profile->active)
 		return NO_ERROR;
 	
-	m_profile_program_fpga(profile);
-	
-	return NO_ERROR;
+	return m_profile_program_fpga(profile);
 }
 

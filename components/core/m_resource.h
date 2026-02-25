@@ -29,4 +29,6 @@ typedef struct
 	unsigned int delays;
 } m_eff_resource_report;
 
+m_eff_resource_report empty_m_eff_resource_report();
+
 #endif

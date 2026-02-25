@@ -63,7 +63,7 @@ int m_expression_infix_associativity(int infix_type)
 	return 0;
 }
 
-m_expression *new_m_expression_from_tokens_rec_pratt(
+m_expression *m_parse_expression_rec_pratt(m_eff_parsing_state *ps,
     m_token_ll *tokens,
     m_token_ll **next_token,
     m_token_ll *tokens_end,
@@ -77,7 +77,7 @@ m_expression *new_m_expression_from_tokens_rec_pratt(
 	
 	if (depth > M_EXPR_REC_MAX_DEPTH)
 	{
-		printf("Error (line %d): expression too deep\n", line);
+		m_parser_error_at(ps, tokens, "Expression too deep.");
 		return NULL;
 	}
 	
@@ -104,7 +104,7 @@ m_expression *new_m_expression_from_tokens_rec_pratt(
 	}
 	else if (strcmp(current->data, "(") == 0)
 	{
-		lhs = new_m_expression_from_tokens_rec_pratt(
+		lhs = m_parse_expression_rec_pratt(ps,
 				  current->next,
 				  &current,
 				  tokens_end,
@@ -115,7 +115,7 @@ m_expression *new_m_expression_from_tokens_rec_pratt(
 		
 		if (!current || strcmp(current->data, ")") != 0)
 		{
-			printf("Error (line %d): malformed expression\n", line);
+			m_parser_error_at(ps, current, "Malformed expression");
 			goto pratt_bail;
 		}
 		
@@ -123,7 +123,7 @@ m_expression *new_m_expression_from_tokens_rec_pratt(
 	}
 	else if (unary_type)
 	{
-		rhs = new_m_expression_from_tokens_rec_pratt(
+		rhs = m_parse_expression_rec_pratt(ps,
 				current->next,
 				&nt,
 				tokens_end,
@@ -146,7 +146,7 @@ m_expression *new_m_expression_from_tokens_rec_pratt(
 	}
 	else
 	{
-		printf("Error (line %d): unexpected \"%s\"\n", line, current->data);
+		m_parser_error_at(ps, current, "Unexpected \"%s\"", current->data);
 		goto pratt_bail;
 	}
 	
@@ -164,7 +164,7 @@ m_expression *new_m_expression_from_tokens_rec_pratt(
 
 		current = current->next;
 
-		rhs = new_m_expression_from_tokens_rec_pratt(
+		rhs = m_parse_expression_rec_pratt(ps,
 				current,
 				&nt,
 				tokens_end,
@@ -191,24 +191,33 @@ pratt_bail:
 	return NULL;
 }
 
-m_expression *new_m_expression_from_tokens(m_token_ll *tokens, m_token_ll *tokens_end)
+m_expression *m_parse_expression(m_eff_parsing_state *ps, m_token_ll *tokens, m_token_ll *tokens_end)
 {
 	m_token_ll *next_token;
-	m_expression *expr = new_m_expression_from_tokens_rec_pratt(tokens, &next_token, tokens_end, 0, 0);
+	m_expression *expr = m_parse_expression_rec_pratt(ps, tokens, &next_token, tokens_end, 0, 0);
+	
 	
 	int anything = 0;
 	m_token_ll *check = next_token;
-	if (next_token != tokens_end)
+	
+	if (expr)
 	{
-		// check if there's anyhting of substance
-		while (check && check != tokens_end && !anything)
+		if (next_token != tokens_end)
 		{
-			if (next_token->data && (strcmp(next_token->data, ")") != 0 && strcmp(next_token->data, "\n")))
-				anything = 1;
-			check = check->next;
+			// check if there's anyhting of substance
+			while (check && check != tokens_end && !anything)
+			{
+				if (next_token->data && (strcmp(next_token->data, ")") != 0 && strcmp(next_token->data, "\n")))
+					anything = 1;
+				check = check->next;
+			}
+			if (anything)
+			{
+				m_parser_error_at(ps, next_token, "Expression finished with dangling tokens \e[01;32m\"%s\"\e[0m, ... \e[01;32m\"%s\"\e[0m.", next_token->data, tokens_end ? tokens_end->data : "");
+				// need 2 free
+				return NULL;
+			}
 		}
-		if (anything)
-			printf("Error: expression finished early, on token \"%s\", rather than \"%s\"\n", next_token->data, tokens_end->data);
 	}
 	
 	return expr;

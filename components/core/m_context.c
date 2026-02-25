@@ -474,7 +474,6 @@ int cxt_remove_sequence(m_context *cxt, m_sequence *sequence)
 
 int cxt_remove_transformer(m_context *cxt, uint16_t pid, uint16_t tid)
 {
-	printf("cxt_remove_transformer\n");
 	if (!cxt)
 		return ERR_NULL_PTR;
 	
@@ -487,14 +486,11 @@ int cxt_remove_transformer(m_context *cxt, uint16_t pid, uint16_t tid)
 		#endif
 	}
 	
-	printf("cxt_remove_transformer done\n");
 	return ret_val;
 }
 
 int set_active_profile(m_profile *profile)
 {
-	printf("set_active_profile\n");
-	
 	if (profile)
 		m_profile_set_active(profile);
 	
@@ -516,8 +512,6 @@ int set_active_profile(m_profile *profile)
 	#ifdef USE_TEENSY
 	int ret_val = queue_msg_to_teensy(create_m_message(M_MESSAGE_SWITCH_PROFILE, "s", id));
 	#endif
-	
-	printf("set_active_profile done\n");
 	
 	return NO_ERROR;
 }

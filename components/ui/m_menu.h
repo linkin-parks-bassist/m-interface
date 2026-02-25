@@ -72,6 +72,8 @@ typedef struct m_main_menu_str
 	m_button profiles_button;
 	m_button sequences_button;
 	
+	m_button msc_button;
+	
 	m_danger_button erase_sd_card_button;
 } m_main_menu_str;
 

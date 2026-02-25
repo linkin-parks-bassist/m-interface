@@ -26,9 +26,11 @@ typedef struct m_token_ll {
 	struct m_token_ll *next;
 } m_token_ll;
 
-int m_tokenize_eff_file(FILE *file, m_token_ll **tokens);
+struct m_eff_parsing_state;
 
-int m_token_ll_safe_append(m_token_ll **list_ptr, char *x, int line, int index);
+int m_tokenize_eff_file(struct m_eff_parsing_state *ps, FILE *file, m_token_ll **tokens);
+
+int m_token_ll_safe_aappend(m_token_ll **list_ptr, char *x, int line, int index);
 
 int m_token_ll_advance(m_token_ll **list);
 int m_token_ll_skip_ws(m_token_ll **list);

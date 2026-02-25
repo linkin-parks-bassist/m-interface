@@ -7,16 +7,15 @@
 
 m_dictionary *m_new_dictionary()
 {
-	m_dictionary *dict = m_alloc(sizeof(m_dictionary));
+	m_dictionary *dict = m_parser_alloc(sizeof(m_dictionary));
 	
 	if (!dict)
 		return NULL;
 	
-	dict->entries = m_alloc(sizeof(m_dictionary_entry) * 8);
+	dict->entries = m_parser_alloc(sizeof(m_dictionary_entry) * 8);
 	
 	if (!dict->entries)
 	{
-		m_free(dict);
 		return NULL;
 	}
 	
@@ -302,7 +301,7 @@ void print_dict(m_dictionary *dict)
 	}
 }
 
-m_parameter *m_extract_parameter_from_dict(m_dictionary *dict)
+m_parameter *m_extract_parameter_from_dict(m_eff_parsing_state *ps, m_ast_node *dict_node, m_dictionary *dict)
 {
 	if (!dict)
 		return NULL;
@@ -312,18 +311,7 @@ m_parameter *m_extract_parameter_from_dict(m_dictionary *dict)
 	
 	if (!param) return NULL;
 	
-	param->name = NULL;
-	param->name_internal = NULL;
-	param->value = 1.0;
-	param->min = 0.0;
-	param->min_expr = NULL;
-	param->max = 100.0;
-	param->max_expr = NULL;
-	param->scale = PARAMETER_SCALE_LINEAR;
-	param->max_velocity = 0.1;
-	param->updated = 1;
-	param->widget_type = PARAM_WIDGET_VIRTUAL_POT;
-	param->group = -1;
+	init_parameter_str(param);
 	
 	param->name_internal = m_strndup(dict->name, 128);
 	
@@ -337,11 +325,12 @@ m_parameter *m_extract_parameter_from_dict(m_dictionary *dict)
 	
 	if ((ret_val = m_dictionary_lookup_str(dict, "name", (void*)&str)) == NO_ERROR)
 	{
-		param->name = m_strndup(dict->name, 128);
+		param->name = m_strndup(str, 128);
+		printf("Obtained parameter name; \"%s\"\n", param->name);
 	}
 	else
 	{
-		printf("Error: could not find mandatory attribute \"name\" for parameter \"%s\"\n", param->name_internal);
+		m_parser_error_at_node(ps, dict_node, "Could not find mandatory attribute \"name\" for parameter \"%s\"", param->name_internal);
 		goto parameter_extract_abort;
 	}
 	
@@ -351,29 +340,29 @@ m_parameter *m_extract_parameter_from_dict(m_dictionary *dict)
 	}
 	else
 	{
-		printf("Error: could not find mandatory attribute \"default\" for parameter \"%s\"\n", param->name_internal);
+		m_parser_error_at_node(ps, dict_node, "Could not find mandatory attribute \"default\" for parameter \"%s\"", param->name_internal);
 		goto parameter_extract_abort;
 	}
 	
 	if ((ret_val = m_dictionary_lookup_float(dict, "min", (void*)&v)) == NO_ERROR)
 	{
 		param->min = v;
-		param->min_expr = new_m_expression_const(v);
 	}
-	else if ((ret_val = m_dictionary_lookup_expr(dict, "min", (void*)&expr)) == NO_ERROR)
-	{
+	
+	if ((ret_val = m_dictionary_lookup_expr(dict, "min_expr", (void*)&expr)) == NO_ERROR)
 		param->min_expr = expr;
-	}
+	//else
+	//	param->min_expr = new_m_expression_const(v);
 	
 	if ((ret_val = m_dictionary_lookup_float(dict, "max", (void*)&v)) == NO_ERROR)
 	{
 		param->max = v;
-		param->max_expr = new_m_expression_const(v);
 	}
-	else if ((ret_val = m_dictionary_lookup_expr(dict, "max", (void*)&expr)) == NO_ERROR)
-	{
+	
+	if ((ret_val = m_dictionary_lookup_expr(dict, "max_expr", (void*)&expr)) == NO_ERROR)
 		param->max_expr = expr;
-	}
+	//else
+	//	param->max_expr = new_m_expression_const(v);
 	
 	if ((ret_val = m_dictionary_lookup_str(dict, "scale", (void*)&str)) == NO_ERROR)
 	{
@@ -389,8 +378,13 @@ m_parameter *m_extract_parameter_from_dict(m_dictionary *dict)
 		}
 		else
 		{
-			printf("Warning: unknown scale \"%s\" given to parameter \"%s\". Defaulting to linear.\n", str, param->name_internal);
+			m_parser_warn_at_node(ps, dict_node, "Unknown scale \"%s\" given to parameter \"%s\". Defaulting to linear.", str, param->name_internal);
 		}
+	}
+	
+	if ((ret_val = m_dictionary_lookup_str(dict, "units", (void*)&str)) == NO_ERROR)
+	{
+		param->units = m_strndup(str, 128);
 	}
 	
 	if ((ret_val = m_dictionary_lookup_float(dict, "max_velocity", (void*)&v)) == NO_ERROR)
@@ -421,7 +415,7 @@ m_parameter *m_extract_parameter_from_dict(m_dictionary *dict)
 		}
 		else
 		{
-			printf("Warning: unknown widget type \"%s\" given to parameter \"%s\". Defaulting to dial.\n", str, param->name_internal);
+			m_parser_warn_at_node(ps, dict_node, "Unknown widget type \"%s\" given to parameter \"%s\". Defaulting to dial.", str, param->name_internal);
 		}
 	}
 	
@@ -436,7 +430,6 @@ m_parameter *m_extract_parameter_from_dict(m_dictionary *dict)
 	if (param->value > param->max)
 		param->value = param->max;
 	
-	/*
 	printf("Extracted a parameter;\n");
 	printf("\tname: \"%s\"\n", param->name);
 	printf("\tname_internal: \"%s\"\n", param->name_internal);
@@ -449,7 +442,6 @@ m_parameter *m_extract_parameter_from_dict(m_dictionary *dict)
 	printf("\tmax_velocity: %f\n", param->max_velocity);
 	printf("\twidget_type: %d\n", param->widget_type);
 	printf("\tgroup: %d\n", param->group);
-	*/
 	
 	return param;
 	
@@ -465,7 +457,7 @@ parameter_extract_abort:
 	return NULL;
 }
 
-int m_extract_delay_buffer_from_dict(m_dictionary *dict, m_dsp_resource *res)
+int m_extract_delay_buffer_from_dict(m_eff_parsing_state *ps, m_ast_node *dict_node, m_dictionary *dict, m_dsp_resource *res)
 {
 	if (!dict || !res)
 		return ERR_NULL_PTR;
@@ -492,7 +484,7 @@ int m_extract_delay_buffer_from_dict(m_dictionary *dict, m_dsp_resource *res)
 	}
 	else
 	{
-		printf("Could not find attribute \"delay\" for delay buffer \"%s\"; error code %d\n", res->name, ret_val);
+		m_parser_error_at_node(ps, dict_node, "Could not find mandatory attribute \"delay\" for de;ay buffer \"%s\"", res->name);
 		return ERR_BAD_ARGS;
 	}
 	
@@ -515,7 +507,7 @@ int m_extract_delay_buffer_from_dict(m_dictionary *dict, m_dsp_resource *res)
 	return NO_ERROR;
 }
 
-int m_extract_mem_from_dict(m_dictionary *dict, m_dsp_resource *res)
+int m_extract_mem_from_dict(m_eff_parsing_state *ps, m_ast_node *dict_node, m_dictionary *dict, m_dsp_resource *res)
 {
 	if (!dict || !res)
 		return ERR_NULL_PTR;
@@ -531,7 +523,7 @@ int m_extract_mem_from_dict(m_dictionary *dict, m_dsp_resource *res)
 	return NO_ERROR;
 }
 
-m_dsp_resource *m_extract_resource_from_dict(m_dictionary *dict)
+m_dsp_resource *m_extract_resource_from_dict(m_eff_parsing_state *ps, m_ast_node *dict_node, m_dictionary *dict)
 {
 	if (!dict)
 		return NULL;
@@ -554,7 +546,7 @@ m_dsp_resource *m_extract_resource_from_dict(m_dictionary *dict)
 	
 	if (ret_val != NO_ERROR || !type_str)
 	{
-		printf("Could not find attribute \"type\" for resource \"%s\"\n", dict->name);
+		m_parser_error_at_node(ps, dict_node, "Could not find attribute \"type\" for resource \"%s\"", dict->name);
 		goto resource_extract_abort;
 	}
 	
@@ -562,16 +554,16 @@ m_dsp_resource *m_extract_resource_from_dict(m_dictionary *dict)
 	
 	if (res->type == M_DSP_RESOURCE_NOTHING)
 	{
-		printf("Error: resource type \"%s\" unrecognised\n", type_str);
+		m_parser_error_at_node(ps, dict_node, "Resource type \"%s\" unrecognised", type_str);
 		goto resource_extract_abort;
 	}
 	else if (res->type == M_DSP_RESOURCE_DELAY)
 	{
-		m_extract_delay_buffer_from_dict(dict, res);
+		m_extract_delay_buffer_from_dict(ps, dict_node, dict, res);
 	}
 	else if (res->type == M_DSP_RESOURCE_MEM)
 	{
-		m_extract_mem_from_dict(dict, res);
+		m_extract_mem_from_dict(ps, dict_node, dict, res);
 	}
 	
 	return res;

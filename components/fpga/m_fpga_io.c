@@ -1,12 +1,7 @@
-#include <freertos/FreeRTOS.h>
-#include <driver/spi_master.h>
-#include <string.h>
-#include <math.h>
+#include "m_int.h"
 
-#include "m_error_codes.h"
-#include "m_fpga_io.h"
-#include "m_hfunc.h"
-#include "m_alloc.h"
+#ifndef M_FPGA_SIMULATED
+#include <driver/spi_master.h>
 
 #define PIN_NUM_MISO  	14
 #define PIN_NUM_MOSI  	6
@@ -14,8 +9,7 @@
 #define PIN_NUM_CS		4
 
 spi_device_handle_t spi_handle;
-
-QueueHandle_t m_fpga_send_queue;
+#endif
 
 int16_t float_to_q_nminus1(float x, int shift)
 {
@@ -43,6 +37,7 @@ int16_t float_to_q15(float x)
 
 int m_fpga_spi_init()
 {
+	#ifndef M_FPGA_SIMULATED
     esp_err_t ret;
 
     spi_bus_config_t buscfg = {
@@ -69,11 +64,13 @@ int m_fpga_spi_init()
     if (ret != ESP_OK)
         return ERR_SPI_FAIL;
     
+    #endif
     return NO_ERROR;
 }
 
 int m_fpga_txrx(uint8_t *tx, uint8_t *rx, size_t len)
 {
+	#ifndef M_FPGA_SIMULATED
 	if (len == 0)
 		return 0;
 		
@@ -111,6 +108,9 @@ int m_fpga_txrx(uint8_t *tx, uint8_t *rx, size_t len)
 	#endif
 	
 	return (err == ESP_OK) ? NO_ERROR : ERR_SPI_FAIL;
+	#else
+	return ERR_FEATURE_DISABLED;
+	#endif
 }
 
 int m_fpga_send_byte(uint8_t byte)
@@ -166,11 +166,8 @@ int m_fpga_batch_append_16(m_fpga_transfer_batch *seq, uint16_t x)
 	
 	int ret_val;
 	
-	if ((ret_val = m_fpga_batch_append(seq, bytes[0])) != NO_ERROR)
-		return ret_val;
-	
-	if ((ret_val = m_fpga_batch_append(seq, bytes[1])) != NO_ERROR)
-		return ret_val;
+	if ((ret_val = m_fpga_batch_append(seq, bytes[0])) != NO_ERROR) return ret_val;
+	if ((ret_val = m_fpga_batch_append(seq, bytes[1])) != NO_ERROR) return ret_val;
 	
 	return ret_val;
 }
@@ -186,14 +183,9 @@ int m_fpga_batch_append_24(m_fpga_transfer_batch *seq, uint32_t x)
 	
 	int ret_val;
 	
-	if ((ret_val = m_fpga_batch_append(seq, bytes[0])) != NO_ERROR)
-		return ret_val;
-	
-	if ((ret_val = m_fpga_batch_append(seq, bytes[1])) != NO_ERROR)
-		return ret_val;
-	
-	if ((ret_val = m_fpga_batch_append(seq, bytes[2])) != NO_ERROR)
-		return ret_val;
+	if ((ret_val = m_fpga_batch_append(seq, bytes[0])) != NO_ERROR) return ret_val;
+	if ((ret_val = m_fpga_batch_append(seq, bytes[1])) != NO_ERROR) return ret_val;
+	if ((ret_val = m_fpga_batch_append(seq, bytes[2])) != NO_ERROR) return ret_val;
 	
 	return ret_val;
 }
@@ -209,17 +201,10 @@ int m_fpga_batch_append_32(m_fpga_transfer_batch *seq, uint32_t x)
 	
 	int ret_val;
 	
-	if ((ret_val = m_fpga_batch_append(seq, bytes[0])) != NO_ERROR)
-		return ret_val;
-	
-	if ((ret_val = m_fpga_batch_append(seq, bytes[1])) != NO_ERROR)
-		return ret_val;
-	
-	if ((ret_val = m_fpga_batch_append(seq, bytes[2])) != NO_ERROR)
-		return ret_val;
-	
-	if ((ret_val = m_fpga_batch_append(seq, bytes[3])) != NO_ERROR)
-		return ret_val;
+	if ((ret_val = m_fpga_batch_append(seq, bytes[0])) != NO_ERROR) return ret_val;
+	if ((ret_val = m_fpga_batch_append(seq, bytes[1])) != NO_ERROR) return ret_val;
+	if ((ret_val = m_fpga_batch_append(seq, bytes[2])) != NO_ERROR) return ret_val;
+	if ((ret_val = m_fpga_batch_append(seq, bytes[3])) != NO_ERROR) return ret_val;
 	
 	return ret_val;
 }
@@ -265,11 +250,7 @@ int m_fpga_batch_concat(m_fpga_transfer_batch *seq, m_fpga_transfer_batch *seq2)
 }
 
 int m_fpga_transfer_batch_send(m_fpga_transfer_batch batch)
-{
-	#ifdef PRINT_TRANSFER_BATCHES
-	m_fpga_batch_print(batch);
-	#endif
-	
+{	
 	return m_fpga_txrx(batch.buf, NULL, batch.len);
 }
 
@@ -297,4 +278,24 @@ void m_fpga_set_output_gain(float gain_db)
 void m_fpga_commit_reg_updates()
 {
 	m_fpga_send_byte(COMMAND_COMMIT_REG_UPDATES);
+}
+
+char *m_fpga_command_to_string(int command)
+{
+	switch (command)
+	{
+		case COMMAND_WRITE_BLOCK_INSTR: 	return "WRITE_BLOCK_INSTR";
+		case COMMAND_WRITE_BLOCK_REG_0: 	return "WRITE_BLOCK_REG_0";
+		case COMMAND_UPDATE_BLOCK_REG_0: 	return "UPDATE_BLOCK_REG_0";
+		case COMMAND_WRITE_BLOCK_REG_1: 	return "WRITE_BLOCK_REG_1";
+		case COMMAND_UPDATE_BLOCK_REG_1: 	return "UPDATE_BLOCK_REG_1";
+		case COMMAND_ALLOC_DELAY: 			return "ALLOC_DELAY";
+		case COMMAND_SWAP_PIPELINES: 		return "SWAP_PIPELINES";
+		case COMMAND_RESET_PIPELINE: 		return "RESET_PIPELINE";
+		case COMMAND_SET_INPUT_GAIN: 		return "SET_INPUT_GAIN";
+		case COMMAND_SET_OUTPUT_GAIN: 		return "SET_OUTPUT_GAIN";
+		case COMMAND_COMMIT_REG_UPDATES: 	return "COMMIT_REG_UPDATES";
+	}
+	
+	return "UNKNOWN";
 }

@@ -5,7 +5,44 @@
 
 #include "m_int.h"
 
-const char *ver_str;
+const char *ver_str = "v1.0";
+
+m_bump_arena m_eff_parser_mempool;
+int m_parser_mempool_initialised = 0;
+
+int m_eff_parser_init_mempool()
+{
+	if (m_parser_mempool_initialised)
+		return NO_ERROR;
+	
+	int ret_val = m_bump_arena_init(&m_eff_parser_mempool, M_EFF_PARSER_MEM_POOL_SIZE_KB * 1024);
+	m_parser_mempool_initialised = (ret_val == NO_ERROR);
+	return ret_val;
+}
+
+int m_eff_parser_deinit_mempool()
+{
+	m_parser_mempool_initialised = 0;
+	return m_bump_arena_destroy(&m_eff_parser_mempool);
+}
+
+void *m_parser_alloc(size_t size)
+{
+	return m_bump_arena_alloc(&m_eff_parser_mempool, size);
+}
+
+char *m_parser_strndup(const char *str, int n)
+{
+	size_t len = strnlen(str, n);
+    
+    char *new_str = m_parser_alloc(len + 1);
+    
+    if (!new_str) return NULL;
+    memcpy(new_str, str, len);
+    new_str[len] = '\0';
+    
+    return new_str;
+}
 
 int m_parse_tokens(m_eff_parsing_state *ps)
 {
@@ -15,7 +52,7 @@ int m_parse_tokens(m_eff_parsing_state *ps)
 	m_token_ll *tokens = ps->tokens;
 	m_ast_node **root_ptr = &ps->ast;
 	
-	m_ast_node *root = m_alloc(sizeof(m_ast_node));
+	m_ast_node *root = m_parser_alloc(sizeof(m_ast_node));
 	
 	if (!root)
 		return ERR_ALLOC_FAIL;
@@ -62,7 +99,7 @@ int m_parse_tokens(m_eff_parsing_state *ps)
 			{
 				if (next_section_start_score == 3)
 				{
-					next_section = m_alloc(sizeof(m_ast_node));
+					next_section = m_parser_alloc(sizeof(m_ast_node));
 					
 					if (!next_section)
 						return ERR_ALLOC_FAIL;
@@ -72,15 +109,14 @@ int m_parse_tokens(m_eff_parsing_state *ps)
 					next_section->next  = NULL;
 					next_section->child = NULL;
 					
-					ns = m_alloc(sizeof(m_eff_desc_file_section));
+					ns = m_parser_alloc(sizeof(m_eff_desc_file_section));
 					
 					if (!ns)
 					{
-						m_free(next_section);
 						return ERR_ALLOC_FAIL;
 					}
 					
-					ns->name = m_strndup(current_token->data, 16);
+					ns->name = m_parser_strndup(current_token->data, 16);
 					
 					if (!ns->name)
 					{
@@ -107,7 +143,7 @@ int m_parse_tokens(m_eff_parsing_state *ps)
 				}
 				else
 				{
-					printf("ERROR (line %d): Invalid section name \"%s\"\n", line, current_token->data);
+					m_parser_error_at(ps, current_token, "Invalid section name \"%s\"\n", current_token->data);
 					return ERR_BAD_ARGS;
 				}
 				
@@ -155,8 +191,6 @@ int m_parse_tokens(m_eff_parsing_state *ps)
 			continue;
 		}
 		
-		//printf("Parse section \"%s\"\n", sect->name);
-		
 		if (strcmp(sect->name, "INFO") == 0)
 		{
 			if ((ret_val = m_parse_dictionary_section(ps, current_section)) != NO_ERROR)
@@ -195,19 +229,12 @@ int m_parse_tokens(m_eff_parsing_state *ps)
 		}
 		else
 		{
-			printf("Invalid section name \"%s\"\n", sect->name);
+			m_parser_error(ps, "Invalid section name \"%s\"\n", sect->name);
 			return ERR_BAD_ARGS;
 		}
 	
-		if (ret_val == NO_ERROR)
-		{
-			printf("Sucessfully parsed section\n");
-		}
-		else
-		{
-			printf("Failed to parse section. Error code: %d\n", ret_val);
+		if (ret_val != NO_ERROR)
 			return ret_val;
-		}
 		current_section = current_section->next;
 	}
 	
@@ -215,7 +242,7 @@ int m_parse_tokens(m_eff_parsing_state *ps)
 	{
 		if ((ret_val = m_dictionary_section_lookup_str(info_section, "name", &ps->name)) != NO_ERROR)
 		{
-			printf("Error: name missing! (Error code %d)\n", ret_val);
+			m_parser_error(ps, "Effect name missing");
 			return ret_val;
 		}
 		else
@@ -225,14 +252,14 @@ int m_parse_tokens(m_eff_parsing_state *ps)
 	}
 	else
 	{
-		printf("Error: INFO section missing\n");
+		m_parser_error(ps, "INFO section missing");
+		return ERR_BAD_ARGS;
 	}
 	
 	if (resources_section)
 	{
-		if ((ret_val = m_resources_section_extract(&ps->resources, resources_section)) != NO_ERROR)
+		if ((ret_val = m_resources_section_extract(ps, &ps->resources, resources_section)) != NO_ERROR)
 		{
-			printf("Error extracting resources! Error code %d\n", ret_val);
 			return ret_val;
 		}
 		
@@ -241,9 +268,8 @@ int m_parse_tokens(m_eff_parsing_state *ps)
 	
 	if (parameters_section)
 	{
-		if ((ret_val = m_parameters_section_extract(&ps->parameters, parameters_section)) != NO_ERROR)
+		if ((ret_val = m_parameters_section_extract(ps, &ps->parameters, parameters_section)) != NO_ERROR)
 		{
-			printf("Error extracting parameters! Error code %d\n", ret_val);
 			return ret_val;
 		}
 		
@@ -254,7 +280,6 @@ int m_parse_tokens(m_eff_parsing_state *ps)
 	{
 		if ((ret_val = m_parse_code_section(ps, code_section)) != NO_ERROR)
 		{
-			printf("Error parsing code!\n");
 			return ret_val;
 		}
 		
@@ -275,6 +300,8 @@ int init_parsing_state(m_eff_parsing_state *ps)
 	ps->resources = NULL;
 	ps->blocks = NULL;
 	
+	ps->errors = 0;
+	
 	return NO_ERROR;
 }
 
@@ -293,22 +320,59 @@ m_effect_desc *m_read_eff_desc_from_file(char *fname)
 	m_effect_desc *result = NULL;
 	m_eff_parsing_state ps;
 	
+	int ret_val;
+	
+	if (!m_parser_mempool_initialised)
+	{
+		if ((ret_val = m_eff_parser_init_mempool()) != NO_ERROR)
+		{
+			printf("Error initialising parser mempool: %s\n", m_error_code_to_string(ret_val));
+			return NULL;
+		}
+	}
+	
 	init_parsing_state(&ps);
 	
-	ps.fname = m_strndup(fname, 128);
+	ps.fname = m_parser_strndup(fname, 128);
 	
 	FILE *src = fopen(fname, "r");
 	
 	m_token_ll *tokens = NULL;
 	
-	m_tokenize_eff_file(src, &ps.tokens);
-	
+	m_tokenize_eff_file(&ps, src, &ps.tokens);
 	int j = 0;
+	
+	fclose(src);
+	src = NULL;
+	
+	if (ps.errors != 0)
+	{
+		printf("File \"%s\" ignored due to errors.\n", fname);
+		return NULL;
+	}
 	
 	m_block_pll *blocks = NULL;
 	m_dsp_resource_pll *res = NULL;
 	
-	int ret_val = m_parse_tokens(&ps);
+	ret_val = m_parse_tokens(&ps);
+	
+	if (ps.errors != 0)
+	{
+		printf("File \"%s\" ignored due to errors.\n", fname);
+		if (ps.parameters)
+		{
+			free_m_parameter_pll(ps.parameters);
+		}
+		if (ps.resources)
+		{
+			free_m_dsp_resource_pll(ps.resources);
+		}
+		if (ps.blocks)
+		{
+			free_m_block_pll(ps.blocks);
+		}
+		return NULL;
+	}
 	
 	if (ret_val == NO_ERROR)
 	{
@@ -319,13 +383,17 @@ m_effect_desc *m_read_eff_desc_from_file(char *fname)
 		printf("File \"%s\" parsing failed. Error code: %d\n", fname, ret_val);
 	}
 	
-	result = m_alloc(sizeof(m_effect_desc));
+	result = m_parser_alloc(sizeof(m_effect_desc));
+	
+	m_init_effect_desc(result);
 	
 	if (result)
 	{
 		result->parameters = ps.parameters;
 		result->resources = ps.resources;
 		result->blocks = ps.blocks;
+		
+		result->name = m_strndup(ps.name, 128);
 		
 		m_effect_desc_generate_res_rpt(result);
 	}
@@ -430,7 +498,7 @@ int m_parse_dict_val(m_eff_parsing_state *ps, m_dictionary_entry *result)
 			goto parse_dict_val_fin;
 		}
 		
-		result->value.val_string = m_strndup(&current->data[1], len);
+		result->value.val_string = m_parser_strndup(&current->data[1], len);
 		
 		goto parse_dict_val_fin;
 	}
@@ -477,7 +545,13 @@ int m_parse_dict_val(m_eff_parsing_state *ps, m_dictionary_entry *result)
 	}
 	
 	result->type = DICT_ENTRY_TYPE_DQ;
-	result->value.val_expr = new_m_expression_from_tokens(current, end);
+	result->value.val_expr = m_parse_expression(ps, current, end);
+	
+	if (!result->value.val_expr)
+	{
+		result->type = DICT_ENTRY_TYPE_NOTHING;
+		ret_val = ERR_BAD_ARGS;
+	}
 	
 parse_dict_val_fin:
 	
@@ -517,7 +591,7 @@ int m_parse_dictionary(m_eff_parsing_state *ps, m_dictionary **result, const cha
 	}
 	
 	char *cname;
-	dict->name = m_strndup(name, 128);
+	dict->name = m_parser_strndup(name, 128);
 	
 	m_token_ll_skip_ws(&current);
 	
@@ -525,12 +599,12 @@ int m_parse_dictionary(m_eff_parsing_state *ps, m_dictionary **result, const cha
 	{
 		if (!token_is_name(current->data))
 		{
-			printf("Error (line %d): expected name, got \"%s\"\n", current->line, current->data);
+			m_parser_error_at(ps, current, "Expected name, got \"%s\"", current->data);
 			ret_val = ERR_BAD_ARGS;
 			goto parse_dict_fin;
 		}
 		
-		cname = m_strndup(current->data, 64);
+		cname = m_parser_strndup(current->data, 64);
 		
 		if (!cname)
 		{
@@ -544,7 +618,7 @@ int m_parse_dictionary(m_eff_parsing_state *ps, m_dictionary **result, const cha
 		
 		if (!current || (strcmp(current->data, ":") != 0 && strcmp(current->data, "=") != 0))
 		{
-			printf("Syntax error (line %d): expected \":\" or \"=\", got \"%s\"\n", current->line, current->data);
+			m_parser_error_at(ps, current, "Expected \":\" or \"=\", got \"%s\"\n", current->line, current->data);
 			m_free(cname);
 			ret_val = ERR_BAD_ARGS;
 			goto parse_dict_fin;
@@ -554,7 +628,7 @@ int m_parse_dictionary(m_eff_parsing_state *ps, m_dictionary **result, const cha
 		ps->current_token = current;
 		if ((ret_val = m_parse_dict_val(ps, &centry)) != NO_ERROR)
 		{
-			printf("Error parsing %s.%s\n", dict->name, cname);
+			m_parser_error(ps, "Error parsing attribute %s.%s", dict->name, cname);
 			goto parse_dict_fin;
 		}
 		else
@@ -580,6 +654,180 @@ parse_dict_fin:
 	return ret_val;
 }
 
+void m_parser_print_info_at(m_eff_parsing_state *ps, m_token_ll *token, const char *msg, ...)
+{
+	char buf[1024];
+	va_list args;
+	va_start(args, msg);
+	vsnprintf(buf, sizeof(buf), msg, args);
+	va_end(args);
+	
+	char loc_string[128];
+	if (ps->fname && token)
+		snprintf(loc_string, 128, " (%s:%d)", ps->fname, token->line);
+	else if (ps->fname)
+		snprintf(loc_string, 128, " (%s)", ps->fname);
+	else
+		loc_string[0] = 0;
+	
+	printf("\e[01;36mINFO%s\e[0m: %s\n", loc_string, buf);
+}
+
+void m_parser_warn_at(m_eff_parsing_state *ps, m_token_ll *token, const char *msg, ...)
+{
+	char buf[1024];
+	va_list args;
+	va_start(args, msg);
+	vsnprintf(buf, sizeof(buf), msg, args);
+	va_end(args);
+	
+	char loc_string[128];
+	if (ps->fname && token)
+		snprintf(loc_string, 128, " (%s:%d)", ps->fname, token->line);
+	else if (ps->fname)
+		snprintf(loc_string, 128, " (%s)", ps->fname);
+	else
+		loc_string[0] = 0;
+	
+	printf("\e[01;32mWARNING%s\e[0m: %s\n", loc_string, buf);
+}
+
+void m_parser_error_at(m_eff_parsing_state *ps, m_token_ll *token, const char *msg, ...)
+{
+	char buf[1024];
+	va_list args;
+	va_start(args, msg);
+	vsnprintf(buf, sizeof(buf), msg, args);
+	va_end(args);
+	
+	char loc_string[128];
+	if (ps->fname && token)
+		snprintf(loc_string, 128, " (%s:%d)", ps->fname, token->line);
+	else if (ps->fname)
+		snprintf(loc_string, 128, " (%s)", ps->fname);
+	else
+		loc_string[0] = 0;
+	
+	ps->errors++;
+	printf("\e[01;31mERROR%s\e[0m: %s\n", loc_string, buf);
+}
+
+void m_parser_print_info_at_line(m_eff_parsing_state *ps, int line, const char *msg, ...)
+{
+	char buf[1024];
+	va_list args;
+	va_start(args, msg);
+	vsnprintf(buf, sizeof(buf), msg, args);
+	va_end(args);
+	
+	char loc_string[128];
+	if (ps->fname)
+		snprintf(loc_string, 128, " (%s:%d)", ps->fname, line);
+	else if (ps->fname)
+		snprintf(loc_string, 128, " (%s)", ps->fname);
+	else
+		loc_string[0] = 0;
+	
+	printf("\e[01;36mINFO%s\e[0m: %s\n", loc_string, buf);
+}
+
+void m_parser_warn_at_line(m_eff_parsing_state *ps, int line, const char *msg, ...)
+{
+	char buf[1024];
+	va_list args;
+	va_start(args, msg);
+	vsnprintf(buf, sizeof(buf), msg, args);
+	va_end(args);
+	
+	char loc_string[128];
+	if (ps->fname)
+		snprintf(loc_string, 128, " (%s:%d)", ps->fname, line);
+	else if (ps->fname)
+		snprintf(loc_string, 128, " (%s)", ps->fname);
+	else
+		loc_string[0] = 0;
+	
+	printf("\e[01;32mWARNING%s\e[0m: %s\n", loc_string, buf);
+}
+
+void m_parser_error_at_line(m_eff_parsing_state *ps, int line, const char *msg, ...)
+{
+	char buf[1024];
+	va_list args;
+	va_start(args, msg);
+	vsnprintf(buf, sizeof(buf), msg, args);
+	va_end(args);
+	
+	char loc_string[128];
+	if (ps->fname)
+		snprintf(loc_string, 128, " (%s:%d)", ps->fname, line);
+	else if (ps->fname)
+		snprintf(loc_string, 128, " (%s)", ps->fname);
+	else
+		loc_string[0] = 0;
+	
+	ps->errors++;
+	printf("\e[01;31mERROR%s\e[0m: %s\n", loc_string, buf);
+}
+
+void m_parser_print_info_at_node(m_eff_parsing_state *ps, m_ast_node *node, const char *msg, ...)
+{
+	char buf[1024];
+	va_list args;
+	va_start(args, msg);
+	vsnprintf(buf, sizeof(buf), msg, args);
+	va_end(args);
+	
+	char loc_string[128];
+	if (ps->fname && node)
+		snprintf(loc_string, 128, " (%s:%d)", ps->fname, node->line);
+	else if (ps->fname)
+		snprintf(loc_string, 128, " (%s)", ps->fname);
+	else
+		loc_string[0] = 0;
+	
+	printf("\e[01;36mINFO%s\e[0m: %s\n", loc_string, buf);
+}
+
+void m_parser_warn_at_node(m_eff_parsing_state *ps, m_ast_node *node, const char *msg, ...)
+{
+	char buf[1024];
+	va_list args;
+	va_start(args, msg);
+	vsnprintf(buf, sizeof(buf), msg, args);
+	va_end(args);
+	
+	char loc_string[128];
+	if (ps->fname && node)
+		snprintf(loc_string, 128, " (%s:%d)", ps->fname, node->line);
+	else if (ps->fname)
+		snprintf(loc_string, 128, " (%s)", ps->fname);
+	else
+		loc_string[0] = 0;
+	
+	printf("\e[01;32mWARNING%s\e[0m: %s\n", loc_string, buf);
+}
+
+void m_parser_error_at_node(m_eff_parsing_state *ps, m_ast_node *node, const char *msg, ...)
+{
+	char buf[1024];
+	va_list args;
+	va_start(args, msg);
+	vsnprintf(buf, sizeof(buf), msg, args);
+	va_end(args);
+	
+	char loc_string[128];
+	if (ps->fname && node)
+		snprintf(loc_string, 128, " (%s:%d)", ps->fname, node->line);
+	else if (ps->fname)
+		snprintf(loc_string, 128, " (%s)", ps->fname);
+	else
+		loc_string[0] = 0;
+	
+	ps->errors++;
+	printf("\e[01;31mERROR%s\e[0m: %s\n", loc_string, buf);
+}
+
 void m_parser_print_info(m_eff_parsing_state *ps, const char *msg, ...)
 {
 	char buf[1024];
@@ -599,7 +847,7 @@ void m_parser_print_info(m_eff_parsing_state *ps, const char *msg, ...)
 	printf("\e[01;36INFO%s\e[0m: %s\n", loc_string, buf);
 }
 
-void m_parser_print_warning(m_eff_parsing_state *ps, const char *msg, ...)
+void m_parser_warn(m_eff_parsing_state *ps, const char *msg, ...)
 {
 	char buf[1024];
 	va_list args;
@@ -618,7 +866,7 @@ void m_parser_print_warning(m_eff_parsing_state *ps, const char *msg, ...)
 	printf("\e[01;32mWARNING%s\e[0m: %s\n", loc_string, buf);
 }
 
-void m_parser_print_error(m_eff_parsing_state *ps, const char *msg, ...)
+void m_parser_error(m_eff_parsing_state *ps, const char *msg, ...)
 {
 	char buf[1024];
 	va_list args;
@@ -634,6 +882,7 @@ void m_parser_print_error(m_eff_parsing_state *ps, const char *msg, ...)
 	else
 		loc_string[0] = 0;
 	
+	ps->errors++;
 	
 	printf("\e[01;31mERROR%s\e[0m: %s\n", loc_string, buf);
 }
