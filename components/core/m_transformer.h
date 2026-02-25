@@ -41,6 +41,7 @@ typedef struct m_transformer
 	#endif
 	
 	m_effect_desc *eff;
+	m_expr_scope *scope;
 	
 	#ifdef M_USE_FREERTOS
 	SemaphoreHandle_t mutex;
@@ -88,5 +89,7 @@ int m_fpga_transfer_batch_append_transformer(
 
 
 int m_transformer_update_fpga_registers(m_transformer *trans);
+
+m_expr_scope *m_transformer_create_scope(m_transformer *trans);
 
 #endif

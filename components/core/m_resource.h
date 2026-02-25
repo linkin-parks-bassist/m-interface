@@ -5,12 +5,15 @@
 #define M_DSP_RESOURCE_DELAY	1
 #define M_DSP_RESOURCE_MEM		2
 
+struct m_expression;
+
 typedef struct m_dsp_resource {
 	char *name;
 	int type;
 	int handle;
-	int size;
-	int delay;
+	int mem_size;
+	struct m_expression *size;
+	struct m_expression *delay;
 	void *data;
 } m_dsp_resource;
 

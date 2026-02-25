@@ -48,11 +48,14 @@ m_expression *new_m_expression_binary(int binary_type, m_expression *arg_1, m_ex
 
 int m_expression_references_param(m_expression *expr, m_parameter *param);
 
-float m_expression_compute(m_expression *expr, m_parameter_pll *params);
+float m_expression_evaluate(m_expression *expr, m_expr_scope *scope);
 
+int m_expression_is_constant(m_expression *expr);
 
 float m_expression_min(m_expression *expr, m_parameter_pll *params);
 float m_expression_max(m_expression *expr, m_parameter_pll *params);
+
+int m_expression_detect_constants(m_expression *expr);
 
 typedef struct
 {
@@ -66,6 +69,6 @@ m_interval m_interval_a_(float a);
 m_interval m_interval__b(float b);
 m_interval m_interval_singleton(float v);
 
-m_interval m_expression_compute_range(m_expression *expr, m_parameter_pll *params);
+m_interval m_expression_compute_range(m_expression *expr, m_expr_scope *scope);
 
 #endif

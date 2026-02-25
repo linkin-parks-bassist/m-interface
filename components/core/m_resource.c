@@ -14,10 +14,11 @@ int m_init_dsp_resource(m_dsp_resource *res)
 	
 	res->name = NULL;
 	res->type = M_DSP_RESOURCE_NOTHING;
-	res->size = 0;
-	res->delay = 0;
+	res->size = NULL;
+	res->delay = NULL;
 	res->handle = 0;
 	res->data = NULL;
+	res->mem_size = 0;
 	
 	return NO_ERROR;
 }
@@ -58,7 +59,7 @@ int m_resources_assign_handles(m_dsp_resource_pll *list)
 				
 				case M_DSP_RESOURCE_MEM:
 					current->data->handle = next_mem_handle;
-					next_mem_handle += current->data->size;
+					next_mem_handle += current->data->mem_size;
 					break;
 			}
 		}

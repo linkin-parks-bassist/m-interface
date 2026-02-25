@@ -34,6 +34,7 @@ int init_transformer(m_transformer *trans)
 	
 	trans->parameters = NULL;
 	trans->settings = NULL;
+	trans->scope = NULL;
 	
 	#ifdef M_ENABLE_UI
 	trans->view_page = NULL;
@@ -93,6 +94,8 @@ int init_transformer_from_effect_desc(m_transformer *trans, m_effect_desc *eff)
 		m_parameter_pll_safe_append(&trans->parameters, m_parameter_make_clone(current->data));
 		current = current->next;
 	}
+	
+	trans->scope = m_transformer_create_scope(trans);
 	
 	return NO_ERROR;
 }
@@ -440,4 +443,28 @@ int m_transformer_update_fpga_registers(m_transformer *trans)
 	#else
 	return ERR_FEATURE_DISABLED;
 	#endif
+}
+
+
+m_expr_scope *m_transformer_create_scope(m_transformer *trans)
+{
+	if (!trans)
+		return NULL;
+	
+	m_expr_scope *scope = m_new_expr_scope();
+	
+	if (!scope)
+		return NULL;
+	
+	m_parameter_pll *current = trans->parameters;
+	
+	while (current)
+	{
+		if (current->data)
+			m_expr_scope_add_param(scope, current->data);
+		
+		current = current->next;
+	}
+	
+	return scope;
 }

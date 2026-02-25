@@ -98,7 +98,7 @@ int m_fpga_batch_append_block_instr(m_fpga_transfer_batch *batch, m_block *block
 	return NO_ERROR;
 }
 
-int m_fpga_batch_append_block_regs(m_fpga_transfer_batch *batch, m_block *block, m_parameter_pll *params, int pos)
+int m_fpga_batch_append_block_regs(m_fpga_transfer_batch *batch, m_block *block, m_expr_scope *scope, int pos)
 {
 	if (!batch || !block)
 		return ERR_NULL_PTR;
@@ -108,7 +108,7 @@ int m_fpga_batch_append_block_regs(m_fpga_transfer_batch *batch, m_block *block,
 	
 	if (block->reg_0.active && block->reg_0.expr)
 	{
-		v = m_expression_compute(block->reg_0.expr, params);
+		v = m_expression_evaluate(block->reg_0.expr, scope);
 		s = float_to_q_nminus1(v, block->reg_0.format);
 		
 		m_fpga_batch_append(batch, COMMAND_WRITE_BLOCK_REG_0);
@@ -118,7 +118,7 @@ int m_fpga_batch_append_block_regs(m_fpga_transfer_batch *batch, m_block *block,
 	
 	if (block->reg_1.active && block->reg_1.expr)
 	{
-		v = m_expression_compute(block->reg_1.expr, params);
+		v = m_expression_evaluate(block->reg_1.expr, scope);
 		s = float_to_q_nminus1(v, block->reg_1.format);
 		
 		m_fpga_batch_append(batch, COMMAND_WRITE_BLOCK_REG_1);
@@ -130,7 +130,7 @@ int m_fpga_batch_append_block_regs(m_fpga_transfer_batch *batch, m_block *block,
 }
 
 
-int m_fpga_batch_append_block_register_updates(m_fpga_transfer_batch *batch, m_block *block, m_parameter_pll *parameters, int pos)
+int m_fpga_batch_append_block_register_updates(m_fpga_transfer_batch *batch, m_block *block, m_expr_scope *scope, int pos)
 {
 	if (!batch || !block)
 		return ERR_NULL_PTR;
@@ -142,7 +142,7 @@ int m_fpga_batch_append_block_register_updates(m_fpga_transfer_batch *batch, m_b
 	{
 		if (block->reg_0.expr)
 		{
-			v = m_expression_compute(block->reg_0.expr, parameters);
+			v = m_expression_evaluate(block->reg_0.expr, scope);
 			
 			s = float_to_q_nminus1(v, block->reg_0.format);
 			
@@ -156,7 +156,7 @@ int m_fpga_batch_append_block_register_updates(m_fpga_transfer_batch *batch, m_b
 	{
 		if (block->reg_1.expr)
 		{
-			v = m_expression_compute(block->reg_1.expr, parameters);
+			v = m_expression_evaluate(block->reg_1.expr, scope);
 			
 			s = float_to_q_nminus1(v, block->reg_1.format);
 			
@@ -169,7 +169,7 @@ int m_fpga_batch_append_block_register_updates(m_fpga_transfer_batch *batch, m_b
 	return NO_ERROR;
 }
 
-int m_fpga_transfer_batch_append_effect_register_updates(m_fpga_transfer_batch *batch, m_effect_desc *eff, m_parameter_pll *parameters, int pos)
+int m_fpga_transfer_batch_append_effect_register_updates(m_fpga_transfer_batch *batch, m_effect_desc *eff, m_expr_scope *scope, int pos)
 {
 	if (!batch || !eff)
 		return ERR_NULL_PTR;
@@ -179,7 +179,7 @@ int m_fpga_transfer_batch_append_effect_register_updates(m_fpga_transfer_batch *
 	
 	while (current)
 	{
-		m_fpga_batch_append_block_register_updates(batch, current->data, parameters, pos + i);
+		m_fpga_batch_append_block_register_updates(batch, current->data, scope, pos + i);
 		
 		current = current->next;
 		i++;
@@ -188,18 +188,18 @@ int m_fpga_transfer_batch_append_effect_register_updates(m_fpga_transfer_batch *
 	return NO_ERROR;
 }
 
-int m_fpga_batch_append_block(m_fpga_transfer_batch *batch, m_block *block, const m_eff_resource_report *res, m_parameter_pll *params, int pos)
+int m_fpga_batch_append_block(m_fpga_transfer_batch *batch, m_block *block, const m_eff_resource_report *res, m_expr_scope *scope, int pos)
 {
 	if (!batch || !block)
 		return ERR_NULL_PTR;
 	
 	m_fpga_batch_append_block_instr(batch, block, res, pos);
-	m_fpga_batch_append_block_regs(batch, block, params, pos);
+	m_fpga_batch_append_block_regs(batch, block, scope, pos);
 	
 	return NO_ERROR;
 }
 
-int m_fpga_batch_append_blocks(m_fpga_transfer_batch *batch, m_block_pll *blocks, const m_eff_resource_report *res, m_parameter_pll *params, int pos)
+int m_fpga_batch_append_blocks(m_fpga_transfer_batch *batch, m_block_pll *blocks, const m_eff_resource_report *res, m_expr_scope *scope, int pos)
 {
 	if (!batch || !blocks)
 		return ERR_NULL_PTR;
@@ -211,7 +211,7 @@ int m_fpga_batch_append_blocks(m_fpga_transfer_batch *batch, m_block_pll *blocks
 	int ret_val;
 	while (current)
 	{
-		if (current->data && (ret_val = m_fpga_batch_append_block(batch, current->data, res, params, pos + i)) != NO_ERROR)
+		if (current->data && (ret_val = m_fpga_batch_append_block(batch, current->data, res, scope, pos + i)) != NO_ERROR)
 			return ret_val;
 		
 		current = current->next;
@@ -221,24 +221,47 @@ int m_fpga_batch_append_blocks(m_fpga_transfer_batch *batch, m_block_pll *blocks
 	return NO_ERROR;
 }
 
-int m_fpga_batch_append_resource(m_fpga_transfer_batch *batch, m_dsp_resource *res, const m_eff_resource_report *rpt, m_parameter_pll *params)
+int m_fpga_batch_append_resource(m_fpga_transfer_batch *batch, m_dsp_resource *res, const m_eff_resource_report *rpt, m_expr_scope *scope)
 {
 	if (!batch || !res || !rpt)
 		return ERR_NULL_PTR;
+	
+	uint32_t size;
+	uint32_t delay;
 	
 	switch (res->type)
 	{
 		case M_DSP_RESOURCE_DELAY:
 			m_fpga_batch_append(batch, COMMAND_ALLOC_DELAY);
-			m_fpga_batch_append_24(batch, res->size);
-			m_fpga_batch_append_24(batch, res->delay);
+			
+			delay = (uint32_t)(ceilf(m_expression_evaluate(res->delay, scope)) * 0.001 * M_FPGA_SAMPLE_RATE);
+			
+			if (res->size)
+				size = (uint32_t)(ceilf(m_expression_evaluate(res->size, scope)) * 0.001 * M_FPGA_SAMPLE_RATE);
+			else
+				size = delay;
+			
+			size -= 1;
+			size |= size >> 1;
+			size |= size >> 2;
+			size |= size >> 4;
+			size |= size >> 8;
+			size |= size >> 16;
+			size = size + 1;
+			
+			if (delay > size)
+				delay = size;
+			
+			m_fpga_batch_append_24(batch, size);
+			m_fpga_batch_append_24(batch, delay);
+			
 			break;
 	}
 	
 	return NO_ERROR;
 }
 
-int m_fpga_batch_append_resources(m_fpga_transfer_batch *batch, m_dsp_resource_pll *list, const m_eff_resource_report *rpt, m_parameter_pll *params)
+int m_fpga_batch_append_resources(m_fpga_transfer_batch *batch, m_dsp_resource_pll *list, const m_eff_resource_report *rpt, m_expr_scope *scope)
 {
 	if (!batch || !list || !rpt)
 		return ERR_NULL_PTR;
@@ -247,20 +270,20 @@ int m_fpga_batch_append_resources(m_fpga_transfer_batch *batch, m_dsp_resource_p
 	
 	while (current)
 	{
-		m_fpga_batch_append_resource(batch, current->data, rpt, params);
+		m_fpga_batch_append_resource(batch, current->data, rpt, scope);
 		current = current->next;
 	}
 	
 	return NO_ERROR;
 }
 
-int m_fpga_batch_append_eff_desc(m_fpga_transfer_batch *batch, m_effect_desc *eff, const m_eff_resource_report *res, m_parameter_pll *params, int pos)
+int m_fpga_batch_append_eff_desc(m_fpga_transfer_batch *batch, m_effect_desc *eff, const m_eff_resource_report *res, m_expr_scope *scope, int pos)
 {
 	if (!batch || !eff || !res)
 		return ERR_NULL_PTR;
 	
-	m_fpga_batch_append_resources(batch, eff->resources, res, params);
-	m_fpga_batch_append_blocks(batch, eff->blocks, res, params, pos);
+	m_fpga_batch_append_resources(batch, eff->resources, res, scope);
+	m_fpga_batch_append_blocks(batch, eff->blocks, res, scope, pos);
 	
 	return NO_ERROR;
 }
@@ -273,12 +296,12 @@ int m_fpga_batch_append_transformer(m_fpga_transfer_batch *batch, m_transformer 
 	if (!trans->eff)
 		return ERR_BAD_ARGS;
 	
-	m_parameter_pll *params = trans->parameters;
+	m_expr_scope *scope = trans->scope;
 	
 	trans->block_position = *pos;
 	printf("Updating transformer %p's block position to %d. New value: %d\n", trans, *pos, trans->block_position);
 	
-	m_fpga_batch_append_eff_desc(batch, trans->eff, res, params, *pos);
+	m_fpga_batch_append_eff_desc(batch, trans->eff, res, scope, *pos);
 	
 	res->memory += trans->eff->res_rpt.memory;
 	res->delays += trans->eff->res_rpt.delays;

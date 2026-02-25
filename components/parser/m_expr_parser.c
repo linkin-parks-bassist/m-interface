@@ -202,6 +202,8 @@ m_expression *m_parse_expression(m_eff_parsing_state *ps, m_token_ll *tokens, m_
 	
 	if (expr)
 	{
+		m_expression_detect_constants(expr);
+		
 		if (next_token != tokens_end)
 		{
 			// check if there's anyhting of substance

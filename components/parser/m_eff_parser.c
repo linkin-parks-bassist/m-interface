@@ -383,7 +383,7 @@ m_effect_desc *m_read_eff_desc_from_file(char *fname)
 		printf("File \"%s\" parsing failed. Error code: %d\n", fname, ret_val);
 	}
 	
-	result = m_parser_alloc(sizeof(m_effect_desc));
+	result = m_alloc(sizeof(m_effect_desc));
 	
 	m_init_effect_desc(result);
 	
@@ -394,6 +394,8 @@ m_effect_desc *m_read_eff_desc_from_file(char *fname)
 		result->blocks = ps.blocks;
 		
 		result->name = m_strndup(ps.name, 128);
+		
+		result->scope = m_eff_desc_create_scope(result);
 		
 		m_effect_desc_generate_res_rpt(result);
 	}
@@ -484,7 +486,6 @@ int m_parse_dict_val(m_eff_parsing_state *ps, m_dictionary_entry *result)
 		end = end->next;
 		n_tokens++;
 	}
-	if (end)
 	
 	if (current->data[0] == '"')
 	{
@@ -502,8 +503,7 @@ int m_parse_dict_val(m_eff_parsing_state *ps, m_dictionary_entry *result)
 		
 		goto parse_dict_val_fin;
 	}
-	
-	if (strcmp(current->data, "(") == 0)
+	else if (strcmp(current->data, "(") == 0)
 	{
 		result->type = DICT_ENTRY_TYPE_SUBDICT;
 		ps->current_token = current->next;
@@ -511,46 +511,18 @@ int m_parse_dict_val(m_eff_parsing_state *ps, m_dictionary_entry *result)
 		
 		goto parse_dict_val_fin;
 	}
-	
-	if (n_tokens == 1 && token_is_int(current->data))
+	else
 	{
-		result->type = DICT_ENTRY_TYPE_INT;
-		result->value.val_int = strtol(current->data, NULL, 10);
+		result->type = DICT_ENTRY_TYPE_EXPR;
+		result->value.val_expr = m_parse_expression(ps, current, end);
+		
+		if (!result->value.val_expr)
+		{
+			result->type = DICT_ENTRY_TYPE_NOTHING;
+			ret_val = ERR_BAD_ARGS;
+		}
 		
 		goto parse_dict_val_fin;
-	}
-	
-	if (n_tokens == 1 && token_is_number(current->data))
-	{
-		result->type = DICT_ENTRY_TYPE_FLOAT;
-		result->value.val_float = token_to_float(current->data);
-		
-		goto parse_dict_val_fin;
-	}
-	
-	if (n_tokens == 2 && strcmp(current->data, "-") == 0 && token_is_int(current->next->data))
-	{
-		result->type = DICT_ENTRY_TYPE_INT;
-		result->value.val_int = -strtol(current->next->data, NULL, 10);
-		
-		goto parse_dict_val_fin;
-	}
-	
-	if (n_tokens == 2 && strcmp(current->data, "-") == 0 && token_is_number(current->next->data))
-	{
-		result->type = DICT_ENTRY_TYPE_FLOAT;
-		result->value.val_float = -token_to_float(current->next->data);
-		
-		goto parse_dict_val_fin;
-	}
-	
-	result->type = DICT_ENTRY_TYPE_DQ;
-	result->value.val_expr = m_parse_expression(ps, current, end);
-	
-	if (!result->value.val_expr)
-	{
-		result->type = DICT_ENTRY_TYPE_NOTHING;
-		ret_val = ERR_BAD_ARGS;
 	}
 	
 parse_dict_val_fin:

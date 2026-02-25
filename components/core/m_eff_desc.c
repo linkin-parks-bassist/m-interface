@@ -9,6 +9,7 @@ int m_init_effect_desc(m_effect_desc *eff)
 	eff->parameters = NULL;
 	eff->resources = NULL;
 	eff->blocks = NULL;
+	eff->scope = NULL;
 	
 	return NO_ERROR;
 }
@@ -56,3 +57,25 @@ int m_effect_desc_generate_res_rpt(m_effect_desc *eff)
 	return NO_ERROR;
 }
 
+m_expr_scope *m_eff_desc_create_scope(m_effect_desc *eff)
+{
+	if (!eff)
+		return NULL;
+	
+	m_expr_scope *scope = m_new_expr_scope();
+	
+	if (!scope)
+		return NULL;
+	
+	m_parameter_pll *current = eff->parameters;
+	
+	while (current)
+	{
+		if (current->data)
+			m_expr_scope_add_param(scope, current->data);
+		
+		current = current->next;
+	}
+	
+	return scope;
+}

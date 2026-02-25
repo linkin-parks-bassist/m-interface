@@ -11,7 +11,7 @@ char *m_expression_type_to_str(int type)
 	switch (type)
 	{
 		case M_EXPR_CONST: 	return "CONST";
-		case M_EXPR_NEG:		return "NEG";
+		case M_EXPR_NEG:	return "NEG";
 		case M_EXPR_REF: 	return "REF";
 		case M_EXPR_ADD: 	return "ADD";
 		case M_EXPR_SUB: 	return "SUB";
@@ -19,19 +19,19 @@ char *m_expression_type_to_str(int type)
 		case M_EXPR_DIV: 	return "DIV";
 		case M_EXPR_ABS: 	return "ABS";
 		case M_EXPR_SQR: 	return "SQR";
-		case M_EXPR_SQRT: return "SQRT";
+		case M_EXPR_SQRT: 	return "SQRT";
 		case M_EXPR_EXP: 	return "EXP";
 		case M_EXPR_LN: 	return "LN";
 		case M_EXPR_POW: 	return "POW";
 		case M_EXPR_SIN: 	return "SIN";
-		case M_EXPR_SINH: return "SINH";
+		case M_EXPR_SINH: 	return "SINH";
 		case M_EXPR_COS: 	return "COS";
-		case M_EXPR_COSH: return "COSH";
+		case M_EXPR_COSH: 	return "COSH";
 		case M_EXPR_TAN: 	return "TAN";
-		case M_EXPR_TANH: return "TANH";
-		case M_EXPR_ASIN: return "ASIN";
+		case M_EXPR_TANH: 	return "TANH";
+		case M_EXPR_ASIN: 	return "ASIN";
 		case M_EXPR_ACOS:	return "ACOS";
-		case M_EXPR_ATAN: return "ATAN";
+		case M_EXPR_ATAN: 	return "ATAN";
 	}
 	
 	return "TYPE_UNKNOWN";
@@ -89,16 +89,72 @@ int m_expression_refers_constant(m_expression *expr)
 	return ret_val;
 }
 
-static float m_expression_compute_rec(m_expression *expr, m_parameter_pll *params, int depth)
+int m_expression_is_constant(m_expression *expr)
+{
+	if (!expr)
+		return 1;
+	
+	return (expr->type == M_EXPR_CONST) || expr->constant || m_expression_refers_constant(expr);
+}
+
+int m_expression_detect_constants_rec(m_expression *expr, int depth)
+{
+	if (!expr || depth > M_EXPR_REC_MAX_DEPTH)
+		return 1;
+	
+	int ret_val = 0;
+	
+	if (expr->type == M_EXPR_CONST)
+	{
+		ret_val = 1;
+		goto detect_constants_finish;
+	}
+	
+	int arity = m_expression_arity(expr);
+	
+	if (arity > 0)
+	{
+		if (!expr->val.sub_exprs)
+		{
+			ret_val = 0;
+			goto detect_constants_finish;
+		}
+		
+		for (int i = 0; i < arity; i++)
+		{
+			if (!expr->val.sub_exprs[i])
+				ret_val = 0;
+			else
+				ret_val = ret_val && m_expression_detect_constants_rec(expr->val.sub_exprs[i], depth + 1);
+		}
+	}
+	
+detect_constants_finish:
+	expr->constant = ret_val;
+	return ret_val;
+}
+
+int m_expression_detect_constants(m_expression *expr)
+{
+	return m_expression_detect_constants_rec(expr, 0);
+}
+
+static float m_expression_evaluate_rec(m_expression *expr, m_expr_scope *scope, int depth)
 {
 	m_parameter_pll *current;
+	m_expr_scope_entry *ref;
 	m_parameter *param;
 	int cmplen;
 	
 	float x = 0.0;
 	float ret_val;
 	
-	//printf("expr compute (depth %d): %s (%d)\n", depth, m_expression_type_to_str(expr->type), expr->type);
+	if (depth > M_EXPR_REC_MAX_DEPTH)
+	{
+		printf("m_expression_evaluate(): Error: maximum recursion depth %d exceeded (possible dependency loop)\n", M_EXPR_REC_MAX_DEPTH);
+		ret_val = 0.0;
+		goto expr_compute_return;
+	}
 	
 	if (!expr)
 	{
@@ -109,6 +165,12 @@ static float m_expression_compute_rec(m_expression *expr, m_parameter_pll *param
 	if (expr->constant && expr->cached)
 	{
 		ret_val = expr->cached_val;
+		goto expr_compute_return;
+	}
+	
+	if (expr->type == M_EXPR_CONST)
+	{
+		ret_val = expr->val.val_float;
 		goto expr_compute_return;
 	}
 	
@@ -123,65 +185,73 @@ static float m_expression_compute_rec(m_expression *expr, m_parameter_pll *param
 		if (strcmp(expr->val.ref_name, "pi") == 0)
 		{
 			ret_val = M_PI;
+			expr->constant = 1;
 			goto expr_compute_return;
 		}
 		else if (strcmp(expr->val.ref_name, "e") == 0)
 		{
 			ret_val = exp(1);
+			expr->constant = 1;
 			goto expr_compute_return;
 		}
 		else if (strcmp(expr->val.ref_name, "sample_rate") == 0)
 		{
 			ret_val = M_FPGA_SAMPLE_RATE;
+			expr->constant = 1;
 			goto expr_compute_return;
 		}
 		
-		if (!params)
+		if (!scope)
 		{
+			printf("Error evaluating expression (%p): expression refers to non-constant \"%s\", but no scope given!\n",
+				expr->val.ref_name);
 			ret_val = 0.0;
 			goto expr_compute_return;
 		}
 		
-		cmplen = strlen(expr->val.ref_name) + 1;
+		ref = m_expr_scope_fetch(scope, expr->val.ref_name);
 		
-		current = params;
-		
-		while (current)
+		if (!ref)
 		{
-			param = current->data;
-			if (param && param->name_internal)
-			{
-				if (strncmp(expr->val.ref_name, param->name_internal, cmplen) == 0)
-				{
-					ret_val = param->value;
-					goto expr_compute_return;
-				}
-			}
-			
-			current = current->next;
+			printf("Error evaluating expression (%p): expression refers to non-constant \"%s\", but it isn't found in scope!\n",
+				expr->val.ref_name);
+			ret_val = 0.0;
+			goto expr_compute_return;
 		}
 		
-		ret_val = 0.0;
+		switch (ref->type)
+		{
+			case M_SCOPE_ENTRY_TYPE_EXPR:
+				ret_val = m_expression_evaluate_rec(ref->val.expr, scope, depth + 1);
+				break;
+				
+			case M_SCOPE_ENTRY_TYPE_PARAM:
+				if (!ref->val.param)
+				{
+					printf("Error evaluating expression (%p): expression refers to non-constant \"%s\", but it is NULL!\n",
+						expr->val.ref_name);
+					ret_val = 0.0f;
+				}
+				else
+				{
+					ret_val = ref->val.param->value;
+				}
+				break;
+				
+			default:
+				printf("Error evaluating expression (%p): expression refers to non-constant \"%s\", but it has unrecognised type %d!\n",
+				expr->val.ref_name, ref->type);
+				ret_val = 0.0;
+				break;
+		}
 		
-		goto expr_compute_return;
-	}
-	
-	if (expr->type == M_EXPR_CONST)
-	{
-		ret_val = expr->val.val_float;
-		goto expr_compute_return;
-	}
-	
-	if (depth > M_EXPR_REC_MAX_DEPTH)
-	{
-		printf("expr compute: hit max recursion depth!\n");
-		ret_val = 0.0;
 		goto expr_compute_return;
 	}
 	
 	if (!expr->val.sub_exprs)
 	{
-		printf("expr compute: arity > 0 expr has no sub exprs!\n");
+		printf("Error evaluating expression (%p): expression has arity > 0, but has no sub-expressions!\n",
+				expr->val.ref_name);
 		ret_val = 0.0;
 		goto expr_compute_return;
 	}
@@ -189,23 +259,23 @@ static float m_expression_compute_rec(m_expression *expr, m_parameter_pll *param
 	switch (expr->type)
 	{
 		case M_EXPR_NEG:
-			ret_val = -(m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1));
+			ret_val = -(m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1));
 			break;
 			
 		case M_EXPR_ADD:
-			ret_val = (m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1) + m_expression_compute_rec(expr->val.sub_exprs[1], params, depth + 1));
+			ret_val = (m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1) + m_expression_evaluate_rec(expr->val.sub_exprs[1], scope, depth + 1));
 			break;
 
 		case M_EXPR_SUB:
-			ret_val = m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1) - m_expression_compute_rec(expr->val.sub_exprs[1], params, depth + 1);
+			ret_val = m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1) - m_expression_evaluate_rec(expr->val.sub_exprs[1], scope, depth + 1);
 			break;
 
 		case M_EXPR_MUL:
-			ret_val = m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1) * m_expression_compute_rec(expr->val.sub_exprs[1], params, depth + 1);
+			ret_val = m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1) * m_expression_evaluate_rec(expr->val.sub_exprs[1], scope, depth + 1);
 			break;
 
 		case M_EXPR_DIV:
-			x = m_expression_compute_rec(expr->val.sub_exprs[1], params, depth + 1);
+			x = m_expression_evaluate_rec(expr->val.sub_exprs[1], scope, depth + 1);
 			
 			if (fabsf(x) < 1e-20)
 			{
@@ -214,81 +284,80 @@ static float m_expression_compute_rec(m_expression *expr, m_parameter_pll *param
 				goto expr_compute_return; // avoid division by zero by just returning 0 lol. idk. what else to do?
 			}
 			
-			ret_val = m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1) / x;
+			ret_val = m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1) / x;
 			break;
 
 		case M_EXPR_ABS:
-			ret_val = fabs(m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1));
+			ret_val = fabs(m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1));
 			break;
 
-		case M_EXPR_SQR: x = m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1); ret_val = x * x;
+		case M_EXPR_SQR: x = m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1); ret_val = x * x;
 			break;
 
 		case M_EXPR_SQRT:
-			ret_val = sqrt(m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1));
+			ret_val = sqrt(m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1));
 			break;
 
 		case M_EXPR_EXP:
-			ret_val = exp(m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1));
+			ret_val = exp(m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1));
 			break;
 
 		case M_EXPR_LN:
-			ret_val = log(m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1));
+			ret_val = log(m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1));
 			break;
 
 		case M_EXPR_POW:
-			ret_val = pow(m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1),
-						  m_expression_compute_rec(expr->val.sub_exprs[1], params, depth + 1));
+			ret_val = pow(m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1),
+						  m_expression_evaluate_rec(expr->val.sub_exprs[1], scope, depth + 1));
 			break;
 		case M_EXPR_SIN:
-			ret_val = sin(m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1));
+			ret_val = sin(m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1));
 			break;
 			
 		case M_EXPR_SINH:
-			ret_val = sinh(m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1));
+			ret_val = sinh(m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1));
 			break;
 			
 		case M_EXPR_ASIN:
-			ret_val = asin(m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1));
+			ret_val = asin(m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1));
 			break;
 
 		case M_EXPR_COS:
-			ret_val = cos(m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1));
+			ret_val = cos(m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1));
 			break;
 			
 		case M_EXPR_COSH:
-			ret_val = cosh(m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1));
+			ret_val = cosh(m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1));
 			break;
 			
 		case M_EXPR_ACOS:
-			ret_val = acos(m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1));
+			ret_val = acos(m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1));
 			break;
 
 		case M_EXPR_TAN:
-			ret_val = tan(m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1));
+			ret_val = tan(m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1));
 			break;
 
 		case M_EXPR_TANH:
-			ret_val = tanh(m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1));
+			ret_val = tanh(m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1));
 			break;
 			
 		case M_EXPR_ATAN:
-			ret_val = atan(m_expression_compute_rec(expr->val.sub_exprs[0], params, depth + 1));
+			ret_val = atan(m_expression_evaluate_rec(expr->val.sub_exprs[0], scope, depth + 1));
 			break;
 	}
 	
 expr_compute_return:
-	//printf("expr compute (depth %d): return %f\n", depth, ret_val);
-	
+
 	expr->cached = 1;
 	expr->cached_val = ret_val;
 	
 	return ret_val;
 }
 
-float m_expression_compute(m_expression *expr, m_parameter_pll *params)
+float m_expression_evaluate(m_expression *expr, m_expr_scope *scope)
 {
-	return m_expression_compute_rec(expr, params, 0);
+	return m_expression_evaluate_rec(expr, scope, 0);
 }
 
 int m_expression_references_param_rec(m_expression *expr, m_parameter *param, int depth)
@@ -473,10 +542,10 @@ m_interval m_interval_singleton(float v)
 	return result;
 }
 
-m_interval m_expression_compute_range_rec(m_expression *expr, m_parameter_pll *params, int depth)
+m_interval m_expression_compute_range_rec(m_expression *expr, m_expr_scope *scope, int depth)
 {
 	m_parameter_pll *current;
-	m_parameter *rp;
+	m_expr_scope_entry *ref;
 	int found;
 	
 	
@@ -503,7 +572,7 @@ m_interval m_expression_compute_range_rec(m_expression *expr, m_parameter_pll *p
 		goto expr_int_ret;
 	}
 	
-	//printf("m_expression_compute_interval (depth %d) (%s)\n", depth, m_expression_type_to_str(expr->type));
+	//printf("m_expression_evaluate_interval (depth %d) (%s)\n", depth, m_expression_type_to_str(expr->type));
 	
 	if (expr->constant && expr->cached)
 	{
@@ -525,39 +594,68 @@ m_interval m_expression_compute_range_rec(m_expression *expr, m_parameter_pll *p
 			if (expr->cached)
 				ret = m_interval_singleton(expr->cached_val);
 			else
-				ret = m_interval_singleton(m_expression_compute(expr, NULL));
+				ret = m_interval_singleton(m_expression_evaluate(expr, NULL));
 			
 			goto expr_int_ret;
 		}
 		
-		current = params;
-		
-		found = 0;
-		while (current && !found)
+		if (!scope)
 		{
-			if (current->data && strcmp(current->data->name_internal, expr->val.ref_name) == 0)
-			{
-				rp = current->data;
-				found = 1;
-			}
-			
-			current = current->next;
-		}
-		
-		if (found)
-		{
-			if (rp->min_expr && rp->max_expr && depth < M_EXPR_REC_MAX_DEPTH)
-				ret = m_interval_ab(m_expression_compute_rec(rp->min_expr, params, depth + 1), m_expression_compute_rec(rp->max_expr, params, depth + 1));
-			else if (rp->min_expr && depth < M_EXPR_REC_MAX_DEPTH)
-				ret = m_interval_ab(m_expression_compute_rec(rp->min_expr, params, depth + 1), rp->max);
-			else if (rp->max_expr && depth < M_EXPR_REC_MAX_DEPTH)
-				ret = m_interval_ab(rp->min, m_expression_compute_rec(rp->max_expr, params, depth + 1));
-			else
-				ret = m_interval_ab(rp->min, rp->max);
-		}
-		else
-		{
+			printf("Error estimating expression (%p): expression refers to non-constant \"%s\", but no scope given!\n",
+				expr->val.ref_name);
 			ret = m_interval_real_line();
+			goto expr_int_ret;
+		}
+		
+		ref = m_expr_scope_fetch(scope, expr->val.ref_name);
+		
+		if (!ref)
+		{
+			printf("Error estimateing expression (%p): expression refers to non-constant \"%s\", but it isn't found in scope!\n",
+				expr->val.ref_name);
+			ret = m_interval_real_line();
+			goto expr_int_ret;
+		}
+		
+		switch (ref->type)
+		{
+			case M_SCOPE_ENTRY_TYPE_EXPR:
+				ret = m_expression_compute_range_rec(ref->val.expr, scope, depth + 1);
+				break;
+				
+			case M_SCOPE_ENTRY_TYPE_PARAM:
+				if (!ref->val.param)
+				{
+					printf("Error estimating expression (%p): expression refers to non-constant \"%s\", but it is NULL!\n",
+						expr->val.ref_name);
+					ret = m_interval_real_line();
+				}
+				else
+				{
+					if (ref->val.param->min_expr)
+					{
+						ret.a = m_expression_evaluate_rec(ref->val.param->min_expr, scope, depth + 1);
+					}
+					else
+					{
+						ret.a = ref->val.param->min;
+					}
+					if (ref->val.param->max_expr)
+					{
+						ret.b = m_expression_evaluate_rec(ref->val.param->max_expr, scope, depth + 1);
+					}
+					else
+					{
+						ret.b = ref->val.param->max;
+					}
+				}
+				break;
+				
+			default:
+				printf("Error evaluating expression (%p): expression refers to non-constant \"%s\", but it has unrecognised type %d!\n",
+					expr->val.ref_name, ref->type);
+				ret = m_interval_real_line();
+				break;
 		}
 		
 		goto expr_int_ret;
@@ -577,8 +675,8 @@ m_interval m_expression_compute_range_rec(m_expression *expr, m_parameter_pll *p
 		goto expr_int_ret;
 	}
 	
-	if (arity >= 1) x_int = m_expression_compute_range_rec(expr->val.sub_exprs[0], params, depth + 1);
-	if (arity >  1) y_int = m_expression_compute_range_rec(expr->val.sub_exprs[1], params, depth + 1);
+	if (arity >= 1) x_int = m_expression_compute_range_rec(expr->val.sub_exprs[0], scope, depth + 1);
+	if (arity >  1) y_int = m_expression_compute_range_rec(expr->val.sub_exprs[1], scope, depth + 1);
 	
 	switch (expr->type)
 	{
@@ -976,13 +1074,13 @@ expr_int_ret:
 		ret.b = z;
 	}
 	
-	//printf("m_expression_compute_interval (depth %d) (%s) ret [%.06f, %.06f]\n", depth, m_expression_type_to_str(expr->type), ret.a, ret.b);
+	//printf("m_expression_evaluate_interval (depth %d) (%s) ret [%.06f, %.06f]\n", depth, m_expression_type_to_str(expr->type), ret.a, ret.b);
 
 	return ret;
 }
 
 // Just a wrapper function to call the recursive function starting from depth 0
-m_interval m_expression_compute_range(m_expression *expr, m_parameter_pll *params)
+m_interval m_expression_compute_range(m_expression *expr, m_expr_scope *scope)
 {
-	return m_expression_compute_range_rec(expr, params, 0);
+	return m_expression_compute_range_rec(expr, scope, 0);
 }

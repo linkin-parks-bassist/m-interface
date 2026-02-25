@@ -20,6 +20,7 @@ extern "C" {
 #include "m_representation.h"
 #include "m_parameter.h"
 #include "m_resource.h"
+#include "m_expr_scope.h"
 #include "m_expression.h"
 #include "m_block.h"
 #include "m_eff_desc.h"
@@ -63,6 +64,7 @@ extern "C" {
 #include "m_asm_parser.h"
 #include "m_reg_format.h"
 #include "m_fpga_encoding.h"
+#include "m_res_extract.h"
 
 #ifdef __cplusplus
 }
