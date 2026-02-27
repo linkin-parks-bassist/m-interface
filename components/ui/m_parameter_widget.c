@@ -136,9 +136,24 @@ int parameter_widget_update_value(m_parameter_widget *pw)
 	if (!pw->param || !pw->obj)
 		return ERR_BAD_ARGS;
 	
+	m_parameter *param = pw->param;
+	m_expr_scope *scope = NULL;
+	m_transformer *trans = NULL;
+	
+	printf("parameter_widget_update_value; parameter %d.%d.%d, \"%s\"\n",
+		param->id.profile_id, param->id.transformer_id, param->id.parameter_id,
+		param->name ? param->name : "(NULL)");
+	
 	uint32_t val;
 	
-	if (fabsf(pw->param->max - pw->param->min) < 1e-6)
+	m_interval range = m_parameter_get_range(pw->param);
+	
+	float min = range.a;
+	float max = range.b;
+	
+	printf("min/max for PW: %.03f, %.03f\n", min, max);
+	
+	if (fabsf(max - min) < 1e-6)
 	{
 		val = (int)PARAMETER_WIDGET_RANGE_SIZE/2;
 	}
@@ -147,13 +162,13 @@ int parameter_widget_update_value(m_parameter_widget *pw)
 		if (pw->param->scale == PARAMETER_SCALE_LOGARITHMIC)
 		{
 			
-			val = PARAMETER_WIDGET_RANGE_SIZE * ((logf(pw->param->value) - logf(pw->param->min)) /
-												 (logf(pw->param->max) - logf(pw->param->min)));
+			val = PARAMETER_WIDGET_RANGE_SIZE * ((logf(pw->param->value) - logf(min)) /
+												 (logf(max) - logf(min)));
 		}
 		else
 		{
-			val = PARAMETER_WIDGET_RANGE_SIZE * ((pw->param->value - pw->param->min) /
-												 (pw->param->max - pw->param->min));
+			val = PARAMETER_WIDGET_RANGE_SIZE * ((pw->param->value - min) /
+												 (max - min));
 		}
 	}
 	
@@ -247,6 +262,11 @@ void parameter_widget_change_cb_inner(m_parameter_widget *pw)
 	
 	float val;
 	
+	m_interval range = m_parameter_get_range(pw->param);
+	
+	float min = range.a;
+	float max = range.b;
+	
 	switch (pw->param->widget_type)
 	{
 		case PARAM_WIDGET_VSLIDER_TALL:
@@ -265,14 +285,14 @@ void parameter_widget_change_cb_inner(m_parameter_widget *pw)
 	switch (pw->param->scale)
 	{
 		case PARAMETER_SCALE_LOGARITHMIC:
-			float lnmin = logf(pw->param->min);
-			float lnmax = logf(pw->param->max);
+			float lnmin = logf(min);
+			float lnmax = logf(max);
 			
 			val = expf(lnmin + val * (lnmax - lnmin));
 			break;
 		
 		default:
-			val = pw->param->min + val * (pw->param->max - pw->param->min);
+			val = min + val * (max - min);
 			break;
 	}
 	
@@ -589,9 +609,9 @@ int configure_setting_widget(m_setting_widget *sw, m_setting *setting, m_profile
 	
 	sw->type = sw->setting->widget_type;
 	
-	m_representation_pll_safe_append(&setting->reps, &sw->rep);
+	//m_representation_pll_safe_append(&setting->reps, &sw->rep);
 	
-	sw->rep.representee = setting;
+	//sw->rep.representee = setting;
 	
 	return NO_ERROR;
 }
@@ -664,6 +684,7 @@ void sw_field_save_cb(lv_event_t *e)
 		return;
 	
 	// Parse an int!
+	m_profile *profile;
 	
 	char *content = m_strndup(lv_textarea_get_text(sw->obj), 32);
 	
@@ -716,6 +737,16 @@ void sw_field_save_cb(lv_event_t *e)
 		
 		sw->setting->value = read_int;
 		sw->setting->updated = 1;
+		
+		#ifdef M_ENABLE_FPGA
+		profile = cxt_get_profile_by_id(&global_cxt, sw->setting->id.profile_id);
+		printf("Setting widget value changed from %d to %d; reprogramming FPGA in light. profile = %p\n",
+				sw->setting->old_value, sw->setting->value, profile);
+		if (profile)
+		{
+			m_profile_if_active_update_fpga(profile);
+		}
+		#endif
 		
 		#ifdef USE_TEENSY
 		m_message msg = create_m_message(M_MESSAGE_SET_SETTING_VALUE, "ssss", sw->setting->id.profile_id, sw->setting->id.transformer_id, sw->setting->id.setting_id, read_int);

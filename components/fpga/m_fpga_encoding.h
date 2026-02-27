@@ -10,6 +10,8 @@
 
 #define NO_SHIFT 255
 
+#define DELAY_FORMAT 8
+
 int m_fpga_batch_append_block_number(m_fpga_transfer_batch *batch, int block);
 
 uint32_t m_block_instr_encode_resource_aware(m_block *block, const m_eff_resource_report *res);

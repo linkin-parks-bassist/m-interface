@@ -234,6 +234,7 @@ int m_fpga_batch_append_resource(m_fpga_transfer_batch *batch, m_dsp_resource *r
 		case M_DSP_RESOURCE_DELAY:
 			m_fpga_batch_append(batch, COMMAND_ALLOC_DELAY);
 			
+			
 			delay = (uint32_t)(ceilf(m_expression_evaluate(res->delay, scope)) * 0.001 * M_FPGA_SAMPLE_RATE);
 			
 			if (res->size)
@@ -241,19 +242,11 @@ int m_fpga_batch_append_resource(m_fpga_transfer_batch *batch, m_dsp_resource *r
 			else
 				size = delay;
 			
-			size -= 1;
-			size |= size >> 1;
-			size |= size >> 2;
-			size |= size >> 4;
-			size |= size >> 8;
-			size |= size >> 16;
-			size = size + 1;
-			
-			if (delay > size)
-				delay = size;
+			if (size < delay + 1)
+				size = delay + 1;
 			
 			m_fpga_batch_append_24(batch, size);
-			m_fpga_batch_append_24(batch, delay);
+			m_fpga_batch_append_24(batch, delay << DELAY_FORMAT);
 			
 			break;
 	}
@@ -357,6 +350,32 @@ char *m_block_opcode_to_string(uint32_t opcode)
 	return NULL;
 }
 
+char *m_block_opcode_to_name(uint32_t opcode)
+{
+	switch (opcode)
+	{
+		case BLOCK_INSTR_NOP: 			return (char*)"nop";
+		case BLOCK_INSTR_LSH: 			return (char*)"lsh";
+		case BLOCK_INSTR_RSH: 			return (char*)"rsh";
+		case BLOCK_INSTR_ARSH: 			return (char*)"arsh";
+		case BLOCK_INSTR_MADD: 			return (char*)"madd";
+		case BLOCK_INSTR_ABS: 			return (char*)"abs";
+		case BLOCK_INSTR_LUT_READ:		return (char*)"lut";
+		case BLOCK_INSTR_DELAY_READ: 	return (char*)"delay_read";
+		case BLOCK_INSTR_DELAY_WRITE: 	return (char*)"delay_write";
+		case BLOCK_INSTR_MEM_WRITE:		return (char*)"mem_write";
+		case BLOCK_INSTR_MEM_READ:		return (char*)"mem_read";
+		case BLOCK_INSTR_MIN: 			return (char*)"min";
+		case BLOCK_INSTR_MAX: 			return (char*)"max";
+		case BLOCK_INSTR_CLAMP: 		return (char*)"clamp";
+		case BLOCK_INSTR_MACZ: 			return (char*)"macz";
+		case BLOCK_INSTR_MAC: 			return (char*)"mac";
+		case BLOCK_INSTR_MOV_ACC: 		return (char*)"mov_acc";
+	}
+	
+	return "";
+}
+
 void print_instruction_format_a(uint32_t instr)
 {
 	int opcode = range_bits(instr, 5, 0);
@@ -375,9 +394,12 @@ void print_instruction_format_a(uint32_t instr)
 	int sat = !!(instr & (1 << 30));
 	int no_shift = !!(instr & (1 << 31));
 	
-	printf("%s(%d, %d, %d, %d, %d, %d, %d, %d, %d)",
-		m_block_opcode_to_string(opcode),
-		src_a, src_a_reg, src_b, src_b_reg, src_c, src_c_reg, dest, shift, sat);
+	printf("%s c%d %s%d %s%d %s%d, (%d%s)",
+		m_block_opcode_to_name(opcode), dest,
+			src_a_reg ? "r" : "c", src_a,
+			src_b_reg ? "r" : "c", src_b,
+			src_c_reg ? "r" : "c", src_c,
+			shift, sat ? ", unsat" : "");
 }
 
 void print_instruction_format_b(uint32_t instr)
@@ -399,9 +421,11 @@ void print_instruction_format_b(uint32_t instr)
 	
 	int res_addr = range_bits(instr, 8, 20);
 	
-	printf("%s(%d, %d, %d, %d, %d, %d)",
-		m_block_opcode_to_string(opcode),
-		src_a, src_a_reg, src_b, src_b_reg, dest, res_addr);
+	printf("%s c%d %s%d %s%d $%d",
+		m_block_opcode_to_name(opcode), dest,
+			src_a_reg ? "r" : "c", src_a,
+			src_b_reg ? "r" : "c", src_b,
+			res_addr);
 }
 
 void print_instruction(uint32_t instr)
@@ -436,7 +460,7 @@ int m_fpga_batch_print(m_fpga_transfer_batch seq)
 	int ret_state;
 	int skip = 0;
 	
-	int shift;
+	int shift = 0;
 	
 	uint8_t byte;
 	
@@ -445,7 +469,7 @@ int m_fpga_batch_print(m_fpga_transfer_batch seq)
 	
 	uint8_t reg_no = 0;
 	m_fpga_block_addr_t block = 0;
-	m_fpga_sample_t value = 0;
+	uint32_t value = 0;
 	uint32_t instruction = 0;
 	
 	while (i < n)
@@ -459,6 +483,10 @@ int m_fpga_batch_print(m_fpga_transfer_batch seq)
 			case 0: // expecting a command
 				switch (byte)
 				{
+					case COMMAND_BEGIN_PROGRAM:
+						printf("Command BEGIN_PROGRAM");
+						break;
+						
 					case COMMAND_WRITE_BLOCK_INSTR:
 						printf("Command WRITE_BLOCK_INSTR");
 						state = 1;
@@ -475,16 +503,29 @@ int m_fpga_batch_print(m_fpga_transfer_batch seq)
 						ctr = 0;
 						break;
 
-					case COMMAND_UPDATE_BLOCK_REG_0:
-						printf("Command UPDATE_BLOCK_REG_0");
+					case COMMAND_WRITE_BLOCK_REG_1:
+						printf("Command WRITE_BLOCK_REG_1");
 						state = 1;
 						ret_state = 4;
 						value = 0;
 						ctr = 0;
 						break;
 
-					case COMMAND_WRITE_BLOCK_REG_1:
-						printf("Command WRITE_BLOCK_REG_1");
+					case COMMAND_ALLOC_DELAY:
+						printf("Command ALLOC_DELAY");
+						state = 5;
+						value = 0;
+						ctr = 0;
+						ctr_2 = 0;
+						shift = 15;
+						break;
+						
+					case COMMAND_END_PROGRAM:
+						printf("Command END_PROGRAM");
+						break;
+
+					case COMMAND_UPDATE_BLOCK_REG_0:
+						printf("Command UPDATE_BLOCK_REG_0");
 						state = 1;
 						ret_state = 4;
 						value = 0;
@@ -498,29 +539,27 @@ int m_fpga_batch_print(m_fpga_transfer_batch seq)
 						value = 0;
 						ctr = 0;
 						break;
-
-					case COMMAND_ALLOC_DELAY:
-						printf("Command ALLOC_DELAY");
-						state = 5;
-						value = 0;
-						ctr = 0;
-						ctr_2 = 0;
-						break;
-
-					case COMMAND_SWAP_PIPELINES:
-						printf("Command SWAP_PIPELINES");
-						break;
-
-					case COMMAND_RESET_PIPELINE:
-						printf("Command RESET_PIPELINE");
+						
+					case COMMAND_COMMIT_REG_UPDATES:
+						printf("Command COMMIT_REG_UPDATES");
 						break;
 
 					case COMMAND_SET_INPUT_GAIN:
 						printf("Command SET_INPUT_GAIN");
+						state = 4;
+						ret_state = 0;
+						value = 0;
+						ctr = 0;
+						shift = 4;
 						break;
 
 					case COMMAND_SET_OUTPUT_GAIN:
 						printf("Command SET_OUTPUT_GAIN");
+						state = 4;
+						ret_state = 0;
+						value = 0;
+						ctr = 0;
+						shift = 4;
 						break;
 
 				}
@@ -547,9 +586,12 @@ int m_fpga_batch_print(m_fpga_transfer_batch seq)
 				{
 					state = 0;
 					instruction = (instruction << 8) | byte;
-					printf("Word: %s; ", binary_print_32(instruction));
+					//printf("Word: %s; ", binary_print_32(instruction));
 					print_instruction(instruction);
-					shift = range_bits(instruction, 5, 25);
+					if (m_fpga_block_opcode_format(instruction & IBM(5)))
+						shift = 0;
+					else
+						shift = range_bits(instruction, 5, 25);
 				}
 				else
 				{
@@ -587,14 +629,19 @@ int m_fpga_batch_print(m_fpga_transfer_batch seq)
 				else if (ctr == 2)
 				{
 					value = (value << 8) | byte;
-					printf("Value: %s = %d = %llu", binary_print_24(value), value, (float)value / (powf(2.0, 15)));
+					printf("%s: %s = 0x%06x = %.02f", ctr_2 ? "Delay" : "Size", binary_print_24(value), value, (float)((uint32_t)value) / (powf(2.0, (15 - shift))));
 					
 					ctr = 0;
 					
 					if (ctr_2 == 1)
+					{
 						state = 0;
+					}
 					else
+					{
+						shift = 7;
 						ctr_2 = 1;
+					}
 				}
 				else
 				{

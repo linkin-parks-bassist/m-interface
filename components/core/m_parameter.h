@@ -89,6 +89,7 @@ typedef struct m_setting
 	
 	int widget_type;
 	const char *name;
+	const char *name_internal;
 	const char *units;
 	
 	int group;
@@ -108,6 +109,7 @@ int init_parameter(m_parameter *param, const char *name, float level, float min,
 int init_parameter_wni(m_parameter *param, const char *name, const char *name_internal, float level, float min, float max);
 
 int m_parameters_assign_ids(m_parameter_pll *list);
+int m_settings_assign_ids(m_setting_pll *list);
 
 m_parameter *new_m_parameter_wni(const char *name, const char *name_internal, float level, float min, float max);
 
@@ -116,9 +118,15 @@ int init_setting(m_setting *setting, const char *name, uint16_t level);
 
 void clone_parameter(m_parameter *dest, m_parameter *src);
 m_parameter *m_parameter_make_clone(m_parameter *src);
+void gut_parameter(m_parameter *param);
 
 int clone_setting(m_setting *dest, m_setting *src);
 m_setting *m_setting_make_clone(m_setting *src);
 void gut_setting(m_setting *setting);
+
+#ifdef M_ENABLE_GLOBAL_CONTEXT
+struct m_interval;
+struct m_interval m_parameter_get_range(m_parameter *param);
+#endif
 
 #endif

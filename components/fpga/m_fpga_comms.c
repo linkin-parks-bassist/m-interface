@@ -81,8 +81,6 @@ static inline int m_fpga_queue_msg(m_fpga_msg msg)
 
 int m_fpga_queue_transfer_batch(m_fpga_transfer_batch batch)
 {
-	printf("m_fpga_queue_transfer_batch. len = %d, buf = %p, buf_len = %d, buf_owned = %d\n",
-		batch.len, batch.buf, batch.buf_len, batch.buffer_owned);
 	m_fpga_msg msg;
 	
 	msg.type = M_FPGA_MSG_TYPE_BATCH;
@@ -119,28 +117,6 @@ int m_fpga_queue_register_commit()
 	
 	msg.type = M_FPGA_MSG_TYPE_COMMAND;
 	msg.data.command = COMMAND_COMMIT_REG_UPDATES;
-	
-	return m_fpga_queue_msg(msg);
-}
-
-int m_fpga_queue_pipeline_swap()
-{
-	m_fpga_msg msg;
-	
-	msg.type = M_FPGA_MSG_TYPE_COMMAND;
-	msg.data.command = COMMAND_SWAP_PIPELINES;
-	
-	int ret_val = m_fpga_queue_msg(msg);
-	
-	return ret_val;
-}
-
-int m_fpga_queue_pipeline_reset()
-{
-	m_fpga_msg msg;
-	
-	msg.type = M_FPGA_MSG_TYPE_COMMAND;
-	msg.data.command = COMMAND_RESET_PIPELINE;
 	
 	return m_fpga_queue_msg(msg);
 }

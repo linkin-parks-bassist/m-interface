@@ -90,7 +90,7 @@ void transformer_view_enter_settings_cb(lv_event_t *e)
 
 int configure_transformer_view(m_ui_page *page, void *data)
 {
-	//printf("Conpfigure transformer view... page = %p, data = %p\n", page, data);
+	printf("Conpfigure transformer view... page = %p, data = %p\n", page, data);
 	if (!page || !data)
 	{
 		if (page)
@@ -140,12 +140,24 @@ int configure_transformer_view(m_ui_page *page, void *data)
 		current_param = current_param->next;
 	}
 	
+	printf("trans->settings = %p\n", trans->settings);
 	m_setting_pll *current_setting = trans->settings;
 	
 	while (current_setting)
 	{
+		printf("current_setting = %p...\n", current_setting);
+		printf("current_setting->data = %p...\n", current_setting->data);
+		
+		if (current_setting->data)
+		{
+			printf("current_setting->data->name = \"%s\", current_setting->data->name_internal = \"%s\", current_settung->data->page = %s\n",
+				current_setting->data->name, current_setting->data->name_internal,
+				current_setting->data->page == TRANSFORMER_SETTING_PAGE_MAIN ? "main" : "settings");
+		}
 		if (current_setting->data && current_setting->data->page == TRANSFORMER_SETTING_PAGE_MAIN)
 		{
+			printf(" current_setting->data = %p; current_setting->data->name = \"%s\"...",
+				current_setting->data, current_setting->data->name);
 			sw = m_alloc(sizeof(m_setting_widget));
 		
 			if (!sw)
@@ -170,6 +182,7 @@ int configure_transformer_view(m_ui_page *page, void *data)
 
 int create_transformer_view_ui(m_ui_page *page)
 {
+	printf("create_transformer_view_ui\n");
 	if (!page)
 		return ERR_NULL_PTR;
 	
@@ -209,6 +222,7 @@ int create_transformer_view_ui(m_ui_page *page)
 	
 	int group;
 	int i = 0;
+	
 	while (current_setting)
 	{
 		if (current_setting->data)
@@ -271,6 +285,7 @@ int create_transformer_view_ui(m_ui_page *page)
 	
 	page->ui_created = 1;
 	
+	printf("create_transformer_view_ui done\n");
 	return NO_ERROR;
 }
 

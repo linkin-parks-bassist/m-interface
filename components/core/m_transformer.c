@@ -87,12 +87,21 @@ int init_transformer_from_effect_desc(m_transformer *trans, m_effect_desc *eff)
 	init_transformer(trans);
 	trans->eff = eff;
 	
-	m_parameter_pll *current = eff->parameters;
+	m_parameter_pll *current_param = eff->parameters;
+	m_setting_pll *current_setting = eff->settings;
 	
-	while (current)
+	while (current_param)
 	{
-		m_parameter_pll_safe_append(&trans->parameters, m_parameter_make_clone(current->data));
-		current = current->next;
+		m_parameter_pll_safe_append(&trans->parameters, m_parameter_make_clone(current_param->data));
+		current_param = current_param->next;
+	}
+	
+	m_setting *setting;
+	
+	while (current_setting)
+	{
+		m_setting_pll_safe_append(&trans->settings, m_setting_make_clone(current_setting->data));
+		current_setting = current_setting->next;
 	}
 	
 	trans->scope = m_transformer_create_scope(trans);
@@ -435,7 +444,7 @@ int m_transformer_update_fpga_registers(m_transformer *trans)
 	if (!batch.buf)
 		return ERR_ALLOC_FAIL;
 	
-	m_fpga_transfer_batch_append_effect_register_updates(&batch, trans->eff, trans->parameters, trans->block_position);
+	m_fpga_transfer_batch_append_effect_register_updates(&batch, trans->eff, trans->scope, trans->block_position);
 	
 	int ret_val = m_fpga_queue_transfer_batch(batch);
 	
@@ -456,14 +465,23 @@ m_expr_scope *m_transformer_create_scope(m_transformer *trans)
 	if (!scope)
 		return NULL;
 	
-	m_parameter_pll *current = trans->parameters;
+	m_parameter_pll *current_param = trans->parameters;
+	m_setting_pll *current_setting = trans->settings;
 	
-	while (current)
+	while (current_param)
 	{
-		if (current->data)
-			m_expr_scope_add_param(scope, current->data);
+		if (current_param->data)
+			m_expr_scope_add_param(scope, current_param->data);
 		
-		current = current->next;
+		current_param = current_param->next;
+	}
+	
+	while (current_setting)
+	{
+		if (current_setting->data)
+			m_expr_scope_add_setting(scope, current_setting->data);
+		
+		current_setting = current_setting->next;
 	}
 	
 	return scope;

@@ -11,15 +11,22 @@ int init_settings(m_settings *settings)
 	settings->default_profile = NULL;
 	settings->default_profile_id = 0;
 	
+	m_expression *minus_24 = new_m_expression_const(-24);
+	m_expression *plus_24  = new_m_expression_const(24);
+	
 	init_parameter(&settings->input_gain, "Input Gain", 0.0, -30.0, 30.0);
 	settings->input_gain.units = " dB";
 	settings->input_gain.id = (m_parameter_id){.profile_id = CONTEXT_PROFILE_ID, .transformer_id = 0, .parameter_id = INPUT_GAIN_PID};
 	settings->input_gain.max_velocity = 0.4;
+	settings->input_gain.min_expr = minus_24;
+	settings->input_gain.max_expr = plus_24;
 	
 	init_parameter(&settings->output_gain, "Output Gain", -60.0, -30.0, 30.0);
 	settings->output_gain.units = " dB";
 	settings->output_gain.id = (m_parameter_id){.profile_id = CONTEXT_PROFILE_ID, .transformer_id = 0, .parameter_id = OUTPUT_GAIN_PID};
 	settings->output_gain.max_velocity = 0.4;
+	settings->output_gain.min_expr = minus_24;
+	settings->output_gain.max_expr = plus_24;
 	
 	settings_mutex = xSemaphoreCreateMutex();
 	assert(settings_mutex != NULL);

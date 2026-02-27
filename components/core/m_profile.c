@@ -367,8 +367,11 @@ int m_profile_create_fpga_transfer_batch(m_profile *profile, m_fpga_transfer_bat
 	if (!profile || !batch)
 		return ERR_NULL_PTR;
 	
+	printf("m_profile_create_fpga_transfer_batch(profile = %p, batch = %p)\n", profile, batch);
+	
 	int ret_val = m_pipeline_create_fpga_transfer_batch(&profile->pipeline, batch);
 	
+	printf("m_profile_create_fpga_transfer_batch done (%s)\n", m_error_code_to_string(ret_val));
 	return ret_val;
 }
 
@@ -392,13 +395,6 @@ int m_profile_program_fpga(m_profile *profile)
 	#else
 	printf("Queueing transfer batch...\n");
 	if ((ret_val = m_fpga_queue_transfer_batch(batch)) != NO_ERROR)
-	{
-		printf("An error was encountered: %s\n", m_error_code_to_string(ret_val));
-		return ret_val;
-	}
-	
-	printf("Queueing pipeline swap...\n");
-	if ((ret_val = m_fpga_queue_pipeline_swap()) != NO_ERROR)
 	{
 		printf("An error was encountered: %s\n", m_error_code_to_string(ret_val));
 		return ret_val;

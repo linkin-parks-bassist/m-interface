@@ -396,7 +396,7 @@ void free_##X##_pll(X##_pll *list)																														\
 	X##_pll *current = list;																															\
 	X##_pll *next = NULL;																																\
 	while (current != NULL) {																															\
-		printf("current = %p, next = %p\m", current, next);next = current->next;																															\
+		next = current->next;																															\
 		LL_FREE(current->data);																															\
 		LL_FREE(current);																																\
 		current = next;																																	\

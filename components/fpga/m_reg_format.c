@@ -2,7 +2,7 @@
 
 #include "m_int.h"
 
-int m_compute_register_formats(m_block_pll *blocks, m_parameter_pll *parameters)
+int m_compute_register_formats(m_block_pll *blocks, m_expr_scope *scope)
 {
 	printf("m_compute_register_formats\n");
 	if (!blocks) return NO_ERROR;
@@ -29,7 +29,7 @@ int m_compute_register_formats(m_block_pll *blocks, m_parameter_pll *parameters)
 			{
 				if (!shift_set && current->data->reg_0.expr)
 				{
-					range = m_expression_compute_range(current->data->reg_0.expr, parameters);
+					range = m_expression_compute_range(current->data->reg_0.expr, scope);
 					min = range.a;
 					max = range.b;
 					
@@ -63,7 +63,7 @@ int m_compute_register_formats(m_block_pll *blocks, m_parameter_pll *parameters)
 			{
 				if (!shift_set && current->data->reg_1.expr)
 				{
-					range = m_expression_compute_range(current->data->reg_1.expr, parameters);
+					range = m_expression_compute_range(current->data->reg_1.expr, scope);
 					min = range.a;
 					max = range.b;
 					
@@ -95,6 +95,9 @@ int m_compute_register_formats(m_block_pll *blocks, m_parameter_pll *parameters)
 		current = current->next;
 		i++;
 	}
+	
+	
+	printf("m_compute_register_formats done\n");
 	
 	return NO_ERROR;
 }

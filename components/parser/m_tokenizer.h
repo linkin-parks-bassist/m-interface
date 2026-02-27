@@ -37,7 +37,6 @@ int m_token_ll_skip_ws(m_token_ll **list);
 
 int token_is_newline(char *str);
 int token_is_char(char *str, char c);
-int token_is_valid_section_name(char *str);
 
 int token_is_int(char *token);
 int token_is_number(char *token);

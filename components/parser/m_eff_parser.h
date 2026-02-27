@@ -31,7 +31,10 @@ typedef struct m_eff_parsing_state {
 	
 	m_block_pll *blocks;
 	m_parameter_pll *parameters;
+	m_setting_pll *settings;
 	m_dsp_resource_pll *resources;
+	
+	m_expr_scope *scope;
 	
 	m_ast_node *ast;
 	

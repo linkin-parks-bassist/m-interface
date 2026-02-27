@@ -1,3 +1,4 @@
+#include <float.h>
 #include "m_int.h"
 
 #define DEFAULT_MAX_VELOCITY 1.0
@@ -80,14 +81,16 @@ int init_setting_str(m_setting *setting)
 	if (!setting)
 		return ERR_NULL_PTR;
 	
+	setting->type = TRANSFORMER_SETTING_INT;
+	
 	setting->name = NULL;
 	setting->value = 0;
 	
 	setting->n_options = 0;
 	setting->options = NULL;
 	
-	setting->widget_type = SETTING_WIDGET_DROPDOWN;
-	
+	setting->widget_type = SETTING_WIDGET_FIELD;
+	setting->page = TRANSFORMER_SETTING_PAGE_SETTINGS;
 	setting->group = -1;
 	
 	#ifdef M_ENABLE_REPRESENTATIONS
@@ -117,6 +120,11 @@ int init_setting(m_setting *setting, const char *name, uint16_t level)
 	#endif
 	
 	return NO_ERROR;
+}
+
+void gut_parameter(m_parameter *param)
+{
+	
 }
 
 int parameter_set_id(m_parameter *param, uint16_t pid, uint16_t tid, uint16_t ppid)
@@ -192,7 +200,7 @@ int clone_setting(m_setting *dest, m_setting *src)
 	
 	if (dest->n_options)
 	{
-		dest->options = malloc(sizeof(m_setting_option) * dest->n_options);
+		dest->options = m_alloc(sizeof(m_setting_option) * dest->n_options);
 		
 		if (!dest->options)
 		{
@@ -215,10 +223,12 @@ int clone_setting(m_setting *dest, m_setting *src)
 	
 	dest->widget_type = src->widget_type;
 	dest->name = src->name;
+	dest->name_internal = src->name_internal;
 	
 	dest->group = src->group;
 	
 	dest->units = src->units;
+	dest->page = src->page;
 	
 	return NO_ERROR;
 }
@@ -271,3 +281,91 @@ int m_parameters_assign_ids(m_parameter_pll *list)
 	printf("m_parameters_assign_ids done\n");
 	return NO_ERROR;
 }
+
+int m_settings_assign_ids(m_setting_pll *list)
+{
+	int next_setting_id = 0;
+	printf("m_settings_assign_ids\n");
+	
+	m_setting_pll *current = list;
+	
+	while (current)
+	{
+		if (current->data)
+		{
+			printf("Assigning ID %d...\n",
+				next_setting_id);
+			current->data->id.setting_id = next_setting_id++;
+		}
+		current = current->next;
+	}
+	
+	printf("m_settings_assign_ids done\n");
+	return NO_ERROR;
+}
+
+#ifdef M_ENABLE_GLOBAL_CONTEXT
+m_interval m_parameter_get_range(m_parameter *param)
+{	
+	m_interval i = m_interval_real_line();
+	
+	if (!param) return i;
+	
+	m_transformer *trans = cxt_get_transformer_by_id(&global_cxt, param->id.profile_id, param->id.transformer_id);
+	
+	if (trans && !trans->scope)
+	{
+		printf("transformer is not in posession of a scope... strange. generate it\n");
+		trans->scope = m_transformer_create_scope(trans);
+	}
+	
+	int no_transformer = 0;
+	int no_scope = 0;
+	
+	if (param->min_expr)
+	{
+		if (m_expression_is_constant(param->min_expr))
+		{
+			i.a = m_expression_evaluate(param->min_expr, NULL);
+		}
+		else
+		{
+			if (trans && trans->scope)
+			{
+				i.a = m_expression_evaluate(param->min_expr, trans->scope);
+			}
+			else
+			{
+				if (param->min_expr->cached)
+				{
+					i.a = param->min_expr->cached_val;
+				}
+			}
+		}
+	}
+	
+	if (param->max_expr)
+	{
+		if (m_expression_is_constant(param->max_expr))
+		{
+			i.b = m_expression_evaluate(param->max_expr, NULL);
+		}
+		else
+		{
+			if (trans && trans->scope)
+			{
+				i.b = m_expression_evaluate(param->max_expr, trans->scope);
+			}
+			else
+			{
+				if (param->max_expr->cached)
+				{
+					i.b = param->max_expr->cached_val;
+				}
+			}
+		}
+	}
+	
+	return i;
+}
+#endif

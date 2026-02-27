@@ -18,7 +18,7 @@ int16_t float_to_q_nminus1(float x, int shift)
     float scale = (float)(1 << n);
 
     float max =  (float)((1 << (M_FPGA_DATA_WIDTH - 1)) - 1) / scale;
-    float min = -(float)(1  << (M_FPGA_DATA_WIDTH - 1))       / scale;
+    float min = -(float)(1  << (M_FPGA_DATA_WIDTH - 1))      / scale;
 
     if (x > max) x = max;
     if (x < min) x = min;
@@ -284,17 +284,17 @@ char *m_fpga_command_to_string(int command)
 {
 	switch (command)
 	{
-		case COMMAND_WRITE_BLOCK_INSTR: 	return "WRITE_BLOCK_INSTR";
-		case COMMAND_WRITE_BLOCK_REG_0: 	return "WRITE_BLOCK_REG_0";
-		case COMMAND_UPDATE_BLOCK_REG_0: 	return "UPDATE_BLOCK_REG_0";
-		case COMMAND_WRITE_BLOCK_REG_1: 	return "WRITE_BLOCK_REG_1";
-		case COMMAND_UPDATE_BLOCK_REG_1: 	return "UPDATE_BLOCK_REG_1";
-		case COMMAND_ALLOC_DELAY: 			return "ALLOC_DELAY";
-		case COMMAND_SWAP_PIPELINES: 		return "SWAP_PIPELINES";
-		case COMMAND_RESET_PIPELINE: 		return "RESET_PIPELINE";
-		case COMMAND_SET_INPUT_GAIN: 		return "SET_INPUT_GAIN";
-		case COMMAND_SET_OUTPUT_GAIN: 		return "SET_OUTPUT_GAIN";
-		case COMMAND_COMMIT_REG_UPDATES: 	return "COMMIT_REG_UPDATES";
+		case COMMAND_BEGIN_PROGRAM: 	 return "COMMAND_BEGIN_PROGRAM";
+		case COMMAND_WRITE_BLOCK_INSTR:  return "COMMAND_WRITE_BLOCK_INSTR";
+		case COMMAND_WRITE_BLOCK_REG_0:  return "COMMAND_WRITE_BLOCK_REG_0";
+		case COMMAND_WRITE_BLOCK_REG_1:  return "COMMAND_WRITE_BLOCK_REG_1";
+		case COMMAND_ALLOC_DELAY: 		 return "COMMAND_ALLOC_DELAY";
+		case COMMAND_END_PROGRAM: 		 return "COMMAND_END_PROGRAM";
+		case COMMAND_SET_INPUT_GAIN: 	 return "COMMAND_SET_INPUT_GAIN";
+		case COMMAND_SET_OUTPUT_GAIN: 	 return "COMMAND_SET_OUTPUT_GAIN";
+		case COMMAND_UPDATE_BLOCK_REG_0: return "COMMAND_UPDATE_BLOCK_REG_0";
+		case COMMAND_UPDATE_BLOCK_REG_1: return "COMMAND_UPDATE_BLOCK_REG_1";
+		case COMMAND_COMMIT_REG_UPDATES: return "COMMAND_COMMIT_REG_UPDATES";
 	}
 	
 	return "UNKNOWN";

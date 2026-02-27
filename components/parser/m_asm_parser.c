@@ -784,7 +784,6 @@ int m_parse_asm_line(m_eff_parsing_state *ps)
 	m_block_pll_safe_append(&ps->blocks, block);
 	
 asm_line_parse_fin:
-	
 	if (current)
 		current = current->next;
 	
@@ -803,21 +802,18 @@ int m_parse_asm(m_eff_parsing_state *ps)
 	int line_start;
 	int comment;
 	
+	m_token_ll_skip_ws(&current);
 	while (current)
 	{
 		line_start = 0;
 		comment = 0;
 		
 		// Advance to the next non-whitespace token
-		m_token_ll_skip_ws(&current);
-		
-		if (current)
-		{
-			ps->current_token = current;
-			m_parse_asm_line(ps);
-		}
+		ps->current_token = current;
+		m_parse_asm_line(ps);
 		
 		current = ps->current_token;
+		m_token_ll_skip_ws(&current);
 	}
 	
 	return NO_ERROR;

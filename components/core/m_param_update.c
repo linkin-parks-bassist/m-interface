@@ -191,8 +191,8 @@ void m_param_update_task(void *arg)
 				if (diff < -UPDATE_PERIOD_MS * param->max_velocity * param->value)
 					diff = -UPDATE_PERIOD_MS * param->max_velocity * param->value;
 			}
-			printf("Move parameter %s (%d.%d.%d) by %f from %f to %f, with target %f\n", param->name, param->id.profile_id, param->id.transformer_id, param->id.parameter_id,
-				diff, param->value, param->value + diff, update_array[i].target);
+			//printf("Move parameter %s (%d.%d.%d) by %f from %f to %f, with target %f\n", param->name, param->id.profile_id, param->id.transformer_id, param->id.parameter_id,
+			//	diff, param->value, param->value + diff, update_array[i].target);
 			
 			param->value = param->value + diff;
 			
@@ -257,13 +257,13 @@ void m_param_update_task(void *arg)
 
 int m_parameter_trigger_update(m_parameter *param, float target)
 {
-	printf("m_parameter_trigger_update, param = %p, target = %f\n", param, target);
+	//printf("m_parameter_trigger_update, param = %p, target = %f\n", param, target);
 	if (!param)
 		return ERR_NULL_PTR;
 	
-	printf("Parameter %s, ID %d.%d.%d. Current value: %f. Update target: %f. Max velocity: %f\n",
-		param->name, param->id.profile_id, param->id.transformer_id, param->id.parameter_id,
-		param->value, target, param->max_velocity);
+	//printf("Parameter %s, ID %d.%d.%d. Current value: %f. Update target: %f. Max velocity: %f\n",
+	//	param->name, param->id.profile_id, param->id.transformer_id, param->id.parameter_id,
+	//	param->value, target, param->max_velocity);
 	
 	m_parameter_update up;
 	up.id = param->id;

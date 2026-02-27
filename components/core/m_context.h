@@ -50,6 +50,7 @@ m_profile *m_context_add_profile_rp(m_context *cxt);
 
 m_sequence *m_context_add_sequence_rp(m_context *cxt);
 
+m_profile *cxt_get_profile_by_id(m_context *cxt, uint16_t profile_id);
 m_transformer *cxt_get_transformer_by_id(m_context *cxt, uint16_t profile_id, uint16_t transformer_id);
 m_parameter *cxt_get_parameter_by_id(m_context *cxt, uint16_t profile_id, uint16_t transformer_id, uint16_t parameter_id);
 int cxt_get_parameter_and_transformer_by_id(m_context *cxt, m_parameter_id id, m_parameter **pp, m_transformer **tp);

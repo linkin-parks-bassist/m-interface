@@ -8,6 +8,7 @@ int m_init_effect_desc(m_effect_desc *eff)
 	
 	eff->parameters = NULL;
 	eff->resources = NULL;
+	eff->settings = NULL;
 	eff->blocks = NULL;
 	eff->scope = NULL;
 	
@@ -40,7 +41,7 @@ int m_effect_desc_generate_res_rpt(m_effect_desc *eff)
 			switch (cr->data->type)
 			{
 				case M_DSP_RESOURCE_MEM:
-					memory += cr->data->size;
+					memory += cr->data->mem_size;
 					break;
 				case M_DSP_RESOURCE_DELAY:
 					delays += 1;

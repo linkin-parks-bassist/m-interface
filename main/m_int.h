@@ -104,7 +104,7 @@ typedef char_pll string_ll;
 #include "m_asm_parser.h"
 #include "m_reg_format.h"
 #include "m_fpga_encoding.h"
-#include "m_res_extract.h"
+#include "m_dict_extract.h"
 
 #endif
 #else

@@ -4,7 +4,7 @@ idf_component_register(SRCS "m_asm_parser.c"
 							"m_eff_parser.c"
 							"m_eff_section.c"
 							"m_tokenizer.c"
-							"m_res_extract.c"
+							"m_dict_extract.c"
 					REQUIRES
 							driver
 							drivers

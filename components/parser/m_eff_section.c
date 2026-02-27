@@ -1,5 +1,19 @@
 #include "m_int.h"
 
+int token_is_valid_section_name(char *str)
+{
+	if (!str)
+		return 0;
+	
+	if (strcmp(str, "INFO") 	  == 0) return 1;
+	if (strcmp(str, "RESOURCES")  == 0) return 1;
+	if (strcmp(str, "PARAMETERS") == 0) return 1;
+	if (strcmp(str, "SETTINGS")   == 0) return 1;
+	if (strcmp(str, "CODE") 	  == 0) return 1;
+	
+	return 0;
+}
+
 int get_section_start_score(char *str, int current_score)
 {
 	if (!str)
@@ -40,6 +54,38 @@ int m_parameters_section_extract(m_eff_parsing_state *ps, m_parameter_pll **list
 			
 			if (param)
 				m_parameter_pll_safe_append(list, param);
+		}
+	}
+	
+	return NO_ERROR;
+}
+
+int m_settings_section_extract(m_eff_parsing_state *ps, m_setting_pll **list, m_ast_node *sect)
+{
+	if (!list || !sect | !ps)
+		return ERR_NULL_PTR;
+	
+	m_eff_desc_file_section *sec = (m_eff_desc_file_section*)sect->data;
+	
+	if (!sec) return ERR_BAD_ARGS;
+	
+	m_dictionary *dict = sec->dict;
+	m_setting *setting = NULL;
+	
+	if (!dict)
+		return ERR_BAD_ARGS;
+	
+	for (int i = 0; i < dict->n_entries; i++)
+	{
+		if (dict->entries[i].type == DICT_ENTRY_TYPE_SUBDICT)
+		{
+			setting = m_extract_setting_from_dict(ps, sect, dict->entries[i].value.val_dict);
+			
+			if (setting)
+			{
+				printf("Obtained setting \"%s\"; adding to list...\n", setting->name_internal);
+				m_setting_pll_safe_append(list, setting);
+			}
 		}
 	}
 	

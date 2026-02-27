@@ -37,8 +37,42 @@ char *m_expression_type_to_str(int type)
 	return "TYPE_UNKNOWN";
 }
 
+int m_expression_form(m_expression *expr)
+{
+	if (!expr)
+		return M_EXPR_FORM_ATOMIC;
+	
+	switch (expr->type)
+	{
+		case M_EXPR_CONST: 	return M_EXPR_FORM_ATOMIC;
+		case M_EXPR_REF: 	return M_EXPR_FORM_ATOMIC;
+		case M_EXPR_NEG:	return M_EXPR_FORM_UNARY_OP;
+		case M_EXPR_ADD: 	return M_EXPR_FORM_INFIX_OP;
+		case M_EXPR_SUB: 	return M_EXPR_FORM_INFIX_OP;
+		case M_EXPR_MUL: 	return M_EXPR_FORM_INFIX_OP;
+		case M_EXPR_DIV: 	return M_EXPR_FORM_INFIX_OP;
+		case M_EXPR_ABS: 	return M_EXPR_FORM_NORM;
+		case M_EXPR_SQR: 	return M_EXPR_FORM_UNARY_FN;
+		case M_EXPR_SQRT: 	return M_EXPR_FORM_UNARY_FN;
+		case M_EXPR_EXP: 	return M_EXPR_FORM_UNARY_FN;
+		case M_EXPR_LN: 	return M_EXPR_FORM_UNARY_FN;
+		case M_EXPR_POW: 	return M_EXPR_FORM_INFIX_OP;
+		case M_EXPR_SIN: 	return M_EXPR_FORM_UNARY_FN;
+		case M_EXPR_SINH: 	return M_EXPR_FORM_UNARY_FN;
+		case M_EXPR_COS: 	return M_EXPR_FORM_UNARY_FN;
+		case M_EXPR_COSH: 	return M_EXPR_FORM_UNARY_FN;
+		case M_EXPR_TAN: 	return M_EXPR_FORM_UNARY_FN;
+		case M_EXPR_TANH: 	return M_EXPR_FORM_UNARY_FN;
+		case M_EXPR_ASIN: 	return M_EXPR_FORM_UNARY_FN;
+		case M_EXPR_ACOS:	return M_EXPR_FORM_UNARY_FN;
+		case M_EXPR_ATAN: 	return M_EXPR_FORM_UNARY_FN;
+	}
+	
+	return M_EXPR_FORM_ATOMIC;
+}
+
 // Compute arity in the sense of, how many sub-expr's it uses.
-// this is used to guard accesses to the array expr->sub_exprs.
+// this is used to guard accesses to the array expr->val.sub_exprs.
 // therefore, if in doubt, return 0.
 // it should not return x if expr->val.sub_expr[x-1]
 // is not a valid pointer to another expr
@@ -102,35 +136,54 @@ int m_expression_detect_constants_rec(m_expression *expr, int depth)
 	if (!expr || depth > M_EXPR_REC_MAX_DEPTH)
 		return 1;
 	
-	int ret_val = 0;
+	//printf("The expression \"%s\" ", m_expression_to_string(expr));
+	
+	int ret_val = 1;
 	
 	if (expr->type == M_EXPR_CONST)
 	{
+		//printf("is a constant.\n");
 		ret_val = 1;
 		goto detect_constants_finish;
 	}
 	
+	if (expr->type == M_EXPR_REF)
+	{
+		//printf("is a reference");
+		ret_val = m_expression_refers_constant(expr);
+		//if (ret_val)
+		//	printf(" to a constant.\n");
+		//else
+		//	printf(" to a variable.\n");
+		goto detect_constants_finish;
+	}
+	
 	int arity = m_expression_arity(expr);
+	int sub_expr_cst;
 	
 	if (arity > 0)
 	{
+		//printf("has top-level arity %d. To see if it's constant, we check its %d top-level sub-expressions.\n", arity, arity);
+		
 		if (!expr->val.sub_exprs)
 		{
-			ret_val = 0;
+			//printf("Unfortunately, the data is corrupted, and no sub-expressions were found.\n");
+			ret_val = 1;
 			goto detect_constants_finish;
 		}
 		
-		for (int i = 0; i < arity; i++)
+		for (int i = 0; ret_val && i < arity; i++)
 		{
-			if (!expr->val.sub_exprs[i])
-				ret_val = 0;
-			else
-				ret_val = ret_val && m_expression_detect_constants_rec(expr->val.sub_exprs[i], depth + 1);
+			sub_expr_cst = expr->val.sub_exprs[i] ? m_expression_detect_constants_rec(expr->val.sub_exprs[i], depth + 1) : 1;
+			
+			ret_val = ret_val && sub_expr_cst;
 		}
 	}
 	
 detect_constants_finish:
 	expr->constant = ret_val;
+	//printf("Therefore, \"%s\" is %sconstant.\n", m_expression_to_string(expr), ret_val ? "" : "NOT ");
+	
 	return ret_val;
 }
 
@@ -203,8 +256,8 @@ static float m_expression_evaluate_rec(m_expression *expr, m_expr_scope *scope, 
 		
 		if (!scope)
 		{
-			printf("Error evaluating expression (%p): expression refers to non-constant \"%s\", but no scope given!\n",
-				expr->val.ref_name);
+			printf("Error evaluating expression \"%s\": expression refers to non-constant \"%s\", but no scope given!\n",
+				m_expression_to_string(expr), expr->val.ref_name);
 			ret_val = 0.0;
 			goto expr_compute_return;
 		}
@@ -213,8 +266,8 @@ static float m_expression_evaluate_rec(m_expression *expr, m_expr_scope *scope, 
 		
 		if (!ref)
 		{
-			printf("Error evaluating expression (%p): expression refers to non-constant \"%s\", but it isn't found in scope!\n",
-				expr->val.ref_name);
+			printf("Error evaluating expression \"%s\": expression refers to non-constant \"%s\", but it isn't found in scope!\n",
+				m_expression_to_string(expr), expr->val.ref_name);
 			ret_val = 0.0;
 			goto expr_compute_return;
 		}
@@ -228,8 +281,8 @@ static float m_expression_evaluate_rec(m_expression *expr, m_expr_scope *scope, 
 			case M_SCOPE_ENTRY_TYPE_PARAM:
 				if (!ref->val.param)
 				{
-					printf("Error evaluating expression (%p): expression refers to non-constant \"%s\", but it is NULL!\n",
-						expr->val.ref_name);
+					printf("Error evaluating expression \"%s\": expression refers to non-constant \"%s\", but it is NULL!\n",
+						m_expression_to_string(expr), expr->val.ref_name);
 					ret_val = 0.0f;
 				}
 				else
@@ -238,9 +291,22 @@ static float m_expression_evaluate_rec(m_expression *expr, m_expr_scope *scope, 
 				}
 				break;
 				
+			case M_SCOPE_ENTRY_TYPE_SETTING:
+				if (!ref->val.setting)
+				{
+					printf("Error evaluating expression \"%s\": expression refers to non-constant \"%s\", but it is NULL!\n",
+						expr, expr->val.ref_name);
+					ret_val = 0.0f;
+				}
+				else
+				{
+					ret_val = (float)ref->val.setting->value;
+				}
+				break;
+				
 			default:
-				printf("Error evaluating expression (%p): expression refers to non-constant \"%s\", but it has unrecognised type %d!\n",
-				expr->val.ref_name, ref->type);
+				printf("Error evaluating expression \"%s\": expression refers to non-constant \"%s\", but it has unrecognised type %d!\n",
+					m_expression_to_string(expr), ref->type);
 				ret_val = 0.0;
 				break;
 		}
@@ -357,7 +423,9 @@ expr_compute_return:
 
 float m_expression_evaluate(m_expression *expr, m_expr_scope *scope)
 {
-	return m_expression_evaluate_rec(expr, scope, 0);
+	float ret_val = m_expression_evaluate_rec(expr, scope, 0);
+	//printf("Evaluating expression; %s = %.04f\n", m_expression_to_string(expr), ret_val);
+	return ret_val;
 }
 
 int m_expression_references_param_rec(m_expression *expr, m_parameter *param, int depth)
@@ -474,15 +542,6 @@ m_expression *new_m_expression_reference(char *ref_name)
 {
 	if (!ref_name) return NULL;
 	
-	if (strcmp(ref_name, "pi") == 0)
-		return new_m_expression_const(M_PI);
-		
-	if (strcmp(ref_name, "e") == 0)
-		return new_m_expression_const(exp(1));
-		
-	if (strcmp(ref_name, "sample_rate") == 0)
-		return new_m_expression_const(44100);
-	
 	m_expression *result = m_alloc(sizeof(m_expression));
 	
 	if (!result) return NULL;
@@ -548,6 +607,9 @@ m_interval m_expression_compute_range_rec(m_expression *expr, m_expr_scope *scop
 	m_expr_scope_entry *ref;
 	int found;
 	
+	#ifdef M_BOUNDS_CHECK_VERBOSE
+	printf("[Depth: %d] Computing range for expression \"%s\"...\n", depth, m_expression_to_string(expr));
+	#endif
 	
 	float p1, p2, p3, p4;
 	float z;
@@ -572,30 +634,41 @@ m_interval m_expression_compute_range_rec(m_expression *expr, m_expr_scope *scop
 		goto expr_int_ret;
 	}
 	
-	//printf("m_expression_evaluate_interval (depth %d) (%s)\n", depth, m_expression_type_to_str(expr->type));
-	
 	if (expr->constant && expr->cached)
 	{
-		//printf("result constant & cached. return cached val %f\n", expr->cached_val);
+		#ifdef M_BOUNDS_CHECK_VERBOSE
+		printf("[Depth: %d] Expression is constant (and cached!), with known value %.3f.\n", depth, expr->cached_val);
+		#endif
 		ret = m_interval_singleton(expr->cached_val);
 		goto expr_int_ret;
 	}
 	
 	if (expr->type == M_EXPR_CONST)
 	{
+		#ifdef M_BOUNDS_CHECK_VERBOSE
+		printf("[Depth: %d] Expression is constant and cached, with value %.3f.\n", depth, expr->val.val_float);
+		#endif
 		ret = m_interval_singleton(expr->val.val_float);
 		goto expr_int_ret;
 	}
 	
 	if (expr->type == M_EXPR_REF)
 	{
+		#ifdef M_BOUNDS_CHECK_VERBOSE
+		printf("[Depth: %d] Expression is a reference, to \"%s\". Therefore we must compute its range.\n", depth, expr->val.ref_name ? expr->val.ref_name : "(NULL)");
+		#endif
 		if (m_expression_refers_constant(expr))
 		{
+			#ifdef M_BOUNDS_CHECK_VERBOSE
+			printf("[Depth: %d] The referenced value is a constant,", depth);
+			#endif
 			if (expr->cached)
 				ret = m_interval_singleton(expr->cached_val);
 			else
 				ret = m_interval_singleton(m_expression_evaluate(expr, NULL));
-			
+			#ifdef M_BOUNDS_CHECK_VERBOSE
+			printf(" with value %.4f\n", ret.a);
+			#endif
 			goto expr_int_ret;
 		}
 		
@@ -611,8 +684,8 @@ m_interval m_expression_compute_range_rec(m_expression *expr, m_expr_scope *scop
 		
 		if (!ref)
 		{
-			printf("Error estimateing expression (%p): expression refers to non-constant \"%s\", but it isn't found in scope!\n",
-				expr->val.ref_name);
+			printf("Error estimating expression (%p): expression refers to non-constant \"%s\", but it isn't found in scope!\n",
+				expr, expr->val.ref_name);
 			ret = m_interval_real_line();
 			goto expr_int_ret;
 		}
@@ -620,18 +693,25 @@ m_interval m_expression_compute_range_rec(m_expression *expr, m_expr_scope *scop
 		switch (ref->type)
 		{
 			case M_SCOPE_ENTRY_TYPE_EXPR:
+				#ifdef M_BOUNDS_CHECK_VERBOSE
+				printf("[Depth: %d] The referred quantity is an expression, so we recurse and compute its range!\n", depth);
+				#endif
 				ret = m_expression_compute_range_rec(ref->val.expr, scope, depth + 1);
 				break;
 				
 			case M_SCOPE_ENTRY_TYPE_PARAM:
 				if (!ref->val.param)
 				{
-					printf("Error estimating expression (%p): expression refers to non-constant \"%s\", but it is NULL!\n",
-						expr->val.ref_name);
+					#ifdef M_BOUNDS_CHECK_VERBOSE
+					printf("The reference is to a parameter, but, ultimately, it turned up NULL!\n");
+					#endif
 					ret = m_interval_real_line();
 				}
 				else
 				{
+					#ifdef M_BOUNDS_CHECK_VERBOSE
+					printf("[Depth: %d] The reference is to a parameter. We compute its range.\n", depth);
+					#endif
 					if (ref->val.param->min_expr)
 					{
 						ret.a = m_expression_evaluate_rec(ref->val.param->min_expr, scope, depth + 1);
@@ -648,6 +728,10 @@ m_interval m_expression_compute_range_rec(m_expression *expr, m_expr_scope *scop
 					{
 						ret.b = ref->val.param->max;
 					}
+					
+					#ifdef M_BOUNDS_CHECK_VERBOSE
+					printf("[Depth: %d] Obtained parameter range [%.4f, %.4f].\n", depth, ret.a, ret.b);
+					#endif
 				}
 				break;
 				
@@ -674,6 +758,10 @@ m_interval m_expression_compute_range_rec(m_expression *expr, m_expr_scope *scop
 		ret = m_interval_real_line();
 		goto expr_int_ret;
 	}
+	
+	#ifdef M_BOUNDS_CHECK_VERBOSE
+	printf("[Depth: %d] The expression has top-level arity %d; therefore we recurse and compute ranges of its top-level sub-expressions.\n", depth, arity);
+	#endif
 	
 	if (arity >= 1) x_int = m_expression_compute_range_rec(expr->val.sub_exprs[0], scope, depth + 1);
 	if (arity >  1) y_int = m_expression_compute_range_rec(expr->val.sub_exprs[1], scope, depth + 1);
@@ -1074,8 +1162,10 @@ expr_int_ret:
 		ret.b = z;
 	}
 	
-	//printf("m_expression_evaluate_interval (depth %d) (%s) ret [%.06f, %.06f]\n", depth, m_expression_type_to_str(expr->type), ret.a, ret.b);
-
+	#ifdef M_BOUNDS_CHECK_VERBOSE
+	printf("[Depth: %d] Therefore, the range of \"%s\" is [%.4f, %.4f].\n", depth, m_expression_to_string(expr), ret.a, ret.b);
+	#endif
+	
 	return ret;
 }
 
@@ -1083,4 +1173,191 @@ expr_int_ret:
 m_interval m_expression_compute_range(m_expression *expr, m_expr_scope *scope)
 {
 	return m_expression_compute_range_rec(expr, scope, 0);
+}
+
+const char *m_expression_function_string(m_expression *expr)
+{
+	if (!expr)
+		return "";
+	
+	switch (expr->type)
+	{
+		case M_EXPR_SQRT: 	return "sqrt";
+		case M_EXPR_EXP: 	return "e^";
+		case M_EXPR_LN: 	return "ln";
+		case M_EXPR_SIN: 	return "sin";
+		case M_EXPR_SINH: 	return "sinh";
+		case M_EXPR_COS: 	return "cos";
+		case M_EXPR_COSH:	return "cosh";
+		case M_EXPR_TAN: 	return "tan";
+		case M_EXPR_TANH: 	return "tanh";
+		case M_EXPR_ASIN: 	return "asin";
+		case M_EXPR_ACOS: 	return "acos";
+		case M_EXPR_ATAN: 	return "atan";
+		default: return "";
+	}
+	
+	return "";
+}
+
+const char *m_expression_infix_operator_string(m_expression *expr)
+{
+	if (!expr)
+		return "";
+	
+	switch (expr->type)
+	{
+		case M_EXPR_ADD: 	return " + ";
+		case M_EXPR_SUB: 	return " - ";
+		case M_EXPR_DIV: 	return " / ";
+		case M_EXPR_MUL: 	return " * ";
+		case M_EXPR_POW: 	return "^";
+		default: return "";
+	}
+	
+	return "";
+}
+
+int m_expression_print_rec(m_expression *expr, char *buf, int buf_len, int depth)
+{
+	if (!expr || !buf)
+		return 0;
+	
+	int buf_pos = 0;
+	const char *str_ptr;
+	int len;
+	
+	if (buf_len == 1)
+		goto m_expr_print_end;
+	
+	if (buf_len < 0)
+		return 0;
+	
+	if (depth > M_EXPR_REC_MAX_DEPTH)
+		goto m_expr_print_end;
+	
+	switch (m_expression_form(expr))
+	{
+		default:
+		case M_EXPR_FORM_ATOMIC:
+			if (expr->type == M_EXPR_CONST)
+			{
+				snprintf(buf, buf_len, "%.03f", expr->val.val_float);
+			
+				// snprintf doesn't exaaaaccctly return the number of
+				// characters written, so just find it myself lol
+				buf_pos = strlen(buf);
+			}
+			else if (expr->type == M_EXPR_REF)
+			{
+				if (!expr->val.ref_name)
+				{
+					buf[buf_pos++] = '('; if (buf_len < buf_pos + 1) goto m_expr_print_end;
+					buf[buf_pos++] = 'n'; if (buf_len < buf_pos + 1) goto m_expr_print_end;
+					buf[buf_pos++] = 'u'; if (buf_len < buf_pos + 1) goto m_expr_print_end;
+					buf[buf_pos++] = 'l'; if (buf_len < buf_pos + 1) goto m_expr_print_end;
+					buf[buf_pos++] = 'l'; if (buf_len < buf_pos + 1) goto m_expr_print_end;
+					buf[buf_pos++] = ')';
+				}
+				else
+				{
+					while (expr->val.ref_name[buf_pos] != 0 && buf_pos < buf_len)
+					{
+						buf[buf_pos] = expr->val.ref_name[buf_pos];
+						buf_pos++;
+					}
+				}
+			}
+			
+			break;
+			
+		case M_EXPR_FORM_UNARY_OP:
+			// Currently, there is only one unary operator with standard form. Cbf writing anything fancy
+			buf[buf_pos++] = '-'; if (buf_len < buf_pos + 1) goto m_expr_print_end;
+			
+			if (expr->val.sub_exprs && expr->val.sub_exprs[0] && expr->val.sub_exprs[0]->type == M_EXPR_CONST && expr->val.sub_exprs[0]->val.val_float < 0)
+			{
+				goto bracketed_unary_sub_expr;
+			}
+			
+			buf_pos += m_expression_print_rec(expr->val.sub_exprs[0], &buf[buf_pos], buf_len - buf_pos, depth + 1);
+			break;
+		
+		case M_EXPR_FORM_UNARY_FN:
+			str_ptr = m_expression_function_string(expr);
+			
+			while (str_ptr[buf_pos] != 0 && buf_pos < buf_len)
+			{
+				buf[buf_pos] = str_ptr[buf_pos];
+				buf_pos++;
+			}
+			
+			if (buf_len < buf_pos + 1) goto m_expr_print_end;
+			
+			goto bracketed_unary_sub_expr;
+			break;
+			
+		case M_EXPR_FORM_INFIX_OP:
+			buf[buf_pos++] = '('; if (buf_len < buf_pos + 1) goto m_expr_print_end;
+			buf_pos += m_expression_print_rec(expr->val.sub_exprs[0], &buf[buf_pos], buf_len - buf_pos, depth + 1);
+			if (buf_len < buf_pos + 1) goto m_expr_print_end;
+			str_ptr = m_expression_infix_operator_string(expr);
+			
+			for (int i = 0; str_ptr[i] != 0 && buf_pos < buf_len; i++)
+				buf[buf_pos++] = str_ptr[i];
+
+			if (buf_len < buf_pos + 1) goto m_expr_print_end;
+			
+			buf_pos += m_expression_print_rec(expr->val.sub_exprs[1], &buf[buf_pos], buf_len - buf_pos, depth + 1);
+			if (buf_len < buf_pos + 1) goto m_expr_print_end;
+			buf[buf_pos++] = ')';
+			break;
+			
+		case M_EXPR_FORM_NORM:
+			buf[buf_pos++] = '|';  if (buf_len < buf_pos + 1) goto m_expr_print_end;
+			buf_pos += m_expression_print_rec(expr->val.sub_exprs[0], &buf[buf_pos], buf_len - buf_pos, depth + 1);
+			if (buf_len < buf_pos + 1) goto m_expr_print_end;
+			buf[buf_pos++] = '|';
+			break;
+	}
+	
+	goto m_expr_print_end;
+bracketed_unary_sub_expr:
+	buf[buf_pos++] = '(';  if (buf_len < buf_pos + 1) goto m_expr_print_end;
+	buf_pos += m_expression_print_rec(expr->val.sub_exprs[0], &buf[buf_pos], buf_len - buf_pos, depth + 1);
+	if (buf_len < buf_pos + 1) goto m_expr_print_end;
+	buf[buf_pos++] = ')';
+	
+m_expr_print_end:
+	
+	buf[buf_pos] = 0;
+	return buf_pos;
+}
+
+char expr_print_buf[256];
+
+int m_expression_print(m_expression *expr)
+{
+	if (!expr)
+		return ERR_NULL_PTR;
+	
+	char buf[256];
+	
+	m_expression_print_rec(expr, buf, 256, 0);
+	printf("%s", buf);
+	
+	return NO_ERROR;
+}
+
+const char *m_expression_to_string(m_expression *expr)
+{
+	if (!expr)
+	{
+		expr_print_buf[0] = 0;
+		return expr_print_buf;
+	}
+	
+	m_expression_print_rec(expr, expr_print_buf, 256, 0);
+	
+	return expr_print_buf;
 }

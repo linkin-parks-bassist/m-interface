@@ -218,6 +218,7 @@ void gut_pipeline(m_pipeline *pipeline)
 
 int m_pipeline_create_fpga_transfer_batch(m_pipeline *pipeline, m_fpga_transfer_batch *batch)
 {
+	printf("m_pipeline_create_fpga_transfer_batch(pipeline = %p, batch = %p)\n", pipeline, batch);
 	if (!batch)
 		return ERR_NULL_PTR;
 	
@@ -229,15 +230,15 @@ int m_pipeline_create_fpga_transfer_batch(m_pipeline *pipeline, m_fpga_transfer_
 		goto return_nothing;
 	}
 	
-	if (!pipeline->transformers)
-		goto return_nothing;
-	
 	m_fpga_transfer_batch result = m_new_fpga_transfer_batch();
+	
+	m_fpga_batch_append(&result, COMMAND_BEGIN_PROGRAM);
 	
 	m_eff_resource_report rpt = empty_m_eff_resource_report();
 	
 	int pos = 0;
-	ret_val = m_fpga_batch_append_transformers(&result, pipeline->transformers, &rpt, &pos);
+	if (pipeline->transformers)
+		ret_val = m_fpga_batch_append_transformers(&result, pipeline->transformers, &rpt, &pos);
 	
 	if (ret_val != NO_ERROR)
 	{
@@ -245,8 +246,11 @@ int m_pipeline_create_fpga_transfer_batch(m_pipeline *pipeline, m_fpga_transfer_
 		goto return_nothing;
 	}
 	
+	m_fpga_batch_append(&result, COMMAND_END_PROGRAM);
+	
 	*batch = result;
 	
+	printf("m_pipeline_create_fpga_transfer_batch done (%s)\n", m_error_code_to_string(ret_val));
 	return ret_val;
 	
 return_nothing:
@@ -255,5 +259,6 @@ return_nothing:
 	batch->len = 0;
 	batch->buffer_owned = 1;
 	
+	printf("m_pipeline_create_fpga_transfer_batch failed (%s)\n", m_error_code_to_string(ret_val));
 	return ret_val;
 }

@@ -143,7 +143,7 @@ int m_parse_tokens(m_eff_parsing_state *ps)
 				}
 				else
 				{
-					m_parser_error_at(ps, current_token, "Invalid section name \"%s\"\n", current_token->data);
+					m_parser_error_at(ps, current_token, "Invalid section name \"%s\"", current_token->data);
 					return ERR_BAD_ARGS;
 				}
 				
@@ -177,6 +177,7 @@ int m_parse_tokens(m_eff_parsing_state *ps)
 	m_ast_node *code_section = NULL;
 	m_ast_node *resources_section = NULL;
 	m_ast_node *parameters_section = NULL;
+	m_ast_node *settings_section = NULL;
 	
 	m_eff_desc_file_section *sect;
 	
@@ -215,12 +216,13 @@ int m_parse_tokens(m_eff_parsing_state *ps)
 			}
 			parameters_section = current_section;
 		}
-		else if (strcmp(sect->name, "OPTIONS") == 0)
+		else if (strcmp(sect->name, "SETTINGS") == 0)
 		{
 			if ((ret_val = m_parse_dictionary_section(ps, current_section)) != NO_ERROR)
 			{
 				return ret_val;
 			}
+			settings_section = current_section;
 		}
 		else if (strcmp(sect->name, "CODE") == 0)
 		{
@@ -229,7 +231,7 @@ int m_parse_tokens(m_eff_parsing_state *ps)
 		}
 		else
 		{
-			m_parser_error(ps, "Invalid section name \"%s\"\n", sect->name);
+			m_parser_error(ps, "Invalid section name \"%s\"", sect->name);
 			return ERR_BAD_ARGS;
 		}
 	
@@ -256,6 +258,12 @@ int m_parse_tokens(m_eff_parsing_state *ps)
 		return ERR_BAD_ARGS;
 	}
 	
+	ps->scope = m_parser_alloc(sizeof(m_expr_scope));
+	m_expr_scope_init(ps->scope);
+	
+	if (!ps->scope)
+		return ERR_ALLOC_FAIL;
+	
 	if (resources_section)
 	{
 		if ((ret_val = m_resources_section_extract(ps, &ps->resources, resources_section)) != NO_ERROR)
@@ -274,6 +282,19 @@ int m_parse_tokens(m_eff_parsing_state *ps)
 		}
 		
 		m_parameters_assign_ids(ps->parameters);
+		m_expr_scope_add_params(ps->scope, ps->parameters);
+	}
+	
+	if (settings_section)
+	{
+		if ((ret_val = m_settings_section_extract(ps, &ps->settings, settings_section)) != NO_ERROR)
+		{
+			return ret_val;
+		}
+		
+		m_settings_assign_ids(ps->settings);
+		printf("Adding settings to scope...\n");
+		m_expr_scope_add_settings(ps->scope, ps->settings);
 	}
 	
 	if (code_section)
@@ -283,7 +304,7 @@ int m_parse_tokens(m_eff_parsing_state *ps)
 			return ret_val;
 		}
 		
-		m_compute_register_formats(ps->blocks, ps->parameters);
+		m_compute_register_formats(ps->blocks, ps->scope);
 	}
 	
 	return NO_ERROR;
@@ -298,48 +319,54 @@ int init_parsing_state(m_eff_parsing_state *ps)
 	
 	ps->parameters = NULL;
 	ps->resources = NULL;
+	ps->settings = NULL;
 	ps->blocks = NULL;
 	
 	ps->errors = 0;
-	
-	return NO_ERROR;
-}
-
-int m_parsing_state_cleanup(m_eff_parsing_state *ps)
-{
-	if (!ps)
-		return ERR_NULL_PTR;
-	
-	// delete everything not handed to effect descriptor. prevent memory leaks. please
+	ps->scope = NULL;
 	
 	return NO_ERROR;
 }
 
 m_effect_desc *m_read_eff_desc_from_file(char *fname)
 {
+	printf("m_read_eff_desc_from_file(fname = \"%s\")\n", fname);
 	m_effect_desc *result = NULL;
 	m_eff_parsing_state ps;
+	
+	FILE *src = fopen(fname, "r");
+	
+	if (!src)
+	{
+		printf("Failed to open file \"%s\"!\n", fname);
+		return NULL;
+	}
 	
 	int ret_val;
 	
 	if (!m_parser_mempool_initialised)
 	{
+		printf("Initialise mempool...\n");
 		if ((ret_val = m_eff_parser_init_mempool()) != NO_ERROR)
 		{
 			printf("Error initialising parser mempool: %s\n", m_error_code_to_string(ret_val));
 			return NULL;
 		}
+		printf("Parser mempool initialised.\n");
 	}
 	
+	printf("Initialise parser...\n");
 	init_parsing_state(&ps);
+	printf("Parser initialised.\n");
 	
 	ps.fname = m_parser_strndup(fname, 128);
 	
-	FILE *src = fopen(fname, "r");
 	
 	m_token_ll *tokens = NULL;
 	
+	printf("Tokenize file...\n");
 	m_tokenize_eff_file(&ps, src, &ps.tokens);
+	printf("File tokenized.\n");
 	int j = 0;
 	
 	fclose(src);
@@ -391,6 +418,7 @@ m_effect_desc *m_read_eff_desc_from_file(char *fname)
 	{
 		result->parameters = ps.parameters;
 		result->resources = ps.resources;
+		result->settings = ps.settings;
 		result->blocks = ps.blocks;
 		
 		result->name = m_strndup(ps.name, 128);

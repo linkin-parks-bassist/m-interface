@@ -43,19 +43,6 @@ int char_is_in_string(char c, const char *str)
 	return 1;
 }
 
-int token_is_valid_section_name(char *str)
-{
-	if (!str)
-		return 0;
-	
-	if (strcmp(str, "INFO") 	  == 0) return 1;
-	if (strcmp(str, "RESOURCES")  == 0) return 1;
-	if (strcmp(str, "PARAMETERS") == 0) return 1;
-	if (strcmp(str, "OPTIONS") 	  == 0) return 1;
-	if (strcmp(str, "CODE") 	  == 0) return 1;
-	
-	return 0;
-}
 
 int token_is_char(char *str, char c)
 {

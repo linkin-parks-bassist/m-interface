@@ -5,6 +5,7 @@ typedef struct {
 	const char *name;
 	
 	m_block_pll *blocks;
+	m_setting_pll *settings;
 	m_parameter_pll *parameters;
 	m_dsp_resource_pll *resources;
 	
