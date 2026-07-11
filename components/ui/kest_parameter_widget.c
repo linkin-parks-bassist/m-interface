@@ -643,6 +643,7 @@ int kest_parameter_widget_align_nominal_value(kest_parameter_widget *pw)
 //
 //
 
+#define PRINTLINES_ALLOWED 1
 
 int setting_widget_update_value(kest_setting_widget *sw);
 
@@ -910,22 +911,6 @@ void sw_field_save_cb(lv_event_t *e)
 		
 		sw->setting->value = read_int;
 		sw->setting->updated = 1;
-		
-		#ifdef KEST_ENABLE_FPGA
-		preset = cxt_get_preset_by_id(&global_cxt, sw->setting->id.preset_id);
-		KEST_PRINTF("Setting widget value changed from %d to %d; reprogramming FPGA in light. preset = %p\n",
-				sw->setting->old_value, sw->setting->value, preset);
-		if (preset)
-		{
-			kest_preset_if_active_update_fpga(preset);
-		}
-		#endif
-		
-		#ifdef USE_TEENSY
-		kest_message msg = create_m_message(KEST_MESSAGE_SET_SETTING_VALUE, "ssss", sw->setting->id.preset_id, sw->setting->id.effect_id, sw->setting->id.setting_id, read_int);
-		
-		queue_msg_to_teensy(msg);
-		#endif
 	}
 	
 	kest_free(content);
@@ -936,6 +921,13 @@ void sw_field_save_cb(lv_event_t *e)
 	lv_obj_clear_state(sw->obj, LV_STATE_FOCUSED);
 	
 	KEST_PRINTF("sw_field_save_cb done\n");
+	
+	preset = cxt_get_preset_by_id(&global_cxt, sw->setting->id.preset_id);
+	
+	if (preset && preset->active)
+	{
+		kest_event_log(kest_event_setting_change(preset));
+	}
 }
 
 void sw_field_cancel_cb(lv_event_t *e)
@@ -1007,11 +999,6 @@ void setting_widget_change_cb_inner(kest_setting_widget *sw)
 	}
 	
 	KEST_PRINTF("setting_widget_change_cb_inner. value = %d\n", value);
-	#ifdef USE_TEENSY
-	kest_message msg = create_m_message(KEST_MESSAGE_SET_SETTING_VALUE, "ssss", sw->setting->id.preset_id, sw->setting->id.effect_id, sw->setting->id.setting_id, value);
-
-	queue_msg_to_teensy(msg);
-	#endif
 	
 	if (sw->preset)
 	{

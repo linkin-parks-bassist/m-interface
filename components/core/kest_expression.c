@@ -309,6 +309,8 @@ char *kest_expression_type_to_str(int type)
 		case KEST_EXPR_ATAN: 	return "ATAN";
 		case KEST_EXPR_LOG10: 	return "LOG10";
 		case KEST_EXPR_ERF: 	return "ERF";
+		case KEST_EXPR_MIN: 	return "MIN";
+		case KEST_EXPR_MAX: 	return "MAX";
 	}
 	
 	return "TYPE_UNKNOWN";
@@ -345,6 +347,8 @@ int kest_expression_form(kest_expression *expr)
 		case KEST_EXPR_ATAN: 	return KEST_EXPR_FORM_UNARY_FN;
 		case KEST_EXPR_LOG10: 	return KEST_EXPR_FORM_UNARY_FN;
 		case KEST_EXPR_ERF: 	return KEST_EXPR_FORM_UNARY_FN;
+		case KEST_EXPR_MIN: 	return KEST_EXPR_FORM_BINARY_FN;
+		case KEST_EXPR_MAX: 	return KEST_EXPR_FORM_BINARY_FN;
 	}
 	
 	return KEST_EXPR_FORM_ATOMIC;
@@ -670,6 +674,18 @@ float kest_expression_evaluate_rec(kest_expression *expr, kest_scope *scope, int
 		case KEST_EXPR_ERF:
 			ret_val = erf(kest_expression_evaluate_rec(expr->sub_exprs[0], scope, depth + 1));
 			break;
+			
+		case KEST_EXPR_MIN:
+			x = kest_expression_evaluate_rec(expr->sub_exprs[0], scope, depth + 1);
+			y = kest_expression_evaluate_rec(expr->sub_exprs[1], scope, depth + 1);
+			ret_val = (x < y) ? x : y;
+			break;
+			
+		case KEST_EXPR_MAX:
+			x = kest_expression_evaluate_rec(expr->sub_exprs[0], scope, depth + 1);
+			y = kest_expression_evaluate_rec(expr->sub_exprs[1], scope, depth + 1);
+			ret_val = (x > y) ? x : y;
+			break;
 	}
 	
 expr_compute_return:
@@ -987,7 +1003,9 @@ float kest_expression_compute_min_rec(kest_expression *expr, kest_scope *scope, 
 				expr->type == KEST_EXPR_POW 	||
 				expr->type == KEST_EXPR_COS 	||
 				expr->type == KEST_EXPR_SIN 	||
-				expr->type == KEST_EXPR_TAN
+				expr->type == KEST_EXPR_TAN		||
+				expr->type == KEST_EXPR_MIN		||
+				expr->type == KEST_EXPR_MAX
 			);
 		x_max_needed = (
 				expr->type == KEST_EXPR_NEG 	||
@@ -1014,7 +1032,9 @@ float kest_expression_compute_min_rec(kest_expression *expr, kest_scope *scope, 
 				expr->type == KEST_EXPR_ADD ||
 				expr->type == KEST_EXPR_MUL ||
 				expr->type == KEST_EXPR_DIV ||
-				expr->type == KEST_EXPR_POW
+				expr->type == KEST_EXPR_POW	||
+				expr->type == KEST_EXPR_MIN	||
+				expr->type == KEST_EXPR_MAX
 			);
 		y_max_needed = (
 				expr->type == KEST_EXPR_MUL ||
@@ -1341,6 +1361,14 @@ float kest_expression_compute_min_rec(kest_expression *expr, kest_scope *scope, 
 			
 			goto expr_int_ret;
 		
+		case KEST_EXPR_MIN:
+			ret = (x_min < y_min) ? x_min : y_min;
+			goto expr_int_ret;
+		
+		case KEST_EXPR_MAX:
+			ret = (x_min > y_min) ? x_min : y_min;
+			goto expr_int_ret;
+			
 		default:
 			goto expr_int_ret;
 	}
@@ -1568,6 +1596,7 @@ float kest_expression_compute_max_rec(kest_expression *expr, kest_scope *scope, 
 				expr->type == KEST_EXPR_COS 	||
 				expr->type == KEST_EXPR_SIN 	||
 				expr->type == KEST_EXPR_TAN
+				
 			);
 		x_max_needed = (
 				expr->type == KEST_EXPR_ADD 	||
@@ -1589,8 +1618,9 @@ float kest_expression_compute_max_rec(kest_expression *expr, kest_scope *scope, 
 				expr->type == KEST_EXPR_POW 	||
 				expr->type == KEST_EXPR_COS 	||
 				expr->type == KEST_EXPR_SIN 	||
-				expr->type == KEST_EXPR_TAN
-		
+				expr->type == KEST_EXPR_TAN		||
+				expr->type == KEST_EXPR_MIN		||
+				expr->type == KEST_EXPR_MAX
 			);
 		
 		if (x_min_needed)
@@ -1610,7 +1640,9 @@ float kest_expression_compute_max_rec(kest_expression *expr, kest_scope *scope, 
 				expr->type == KEST_EXPR_ADD ||
 				expr->type == KEST_EXPR_MUL ||
 				expr->type == KEST_EXPR_DIV ||
-				expr->type == KEST_EXPR_POW
+				expr->type == KEST_EXPR_POW ||
+				expr->type == KEST_EXPR_MIN ||
+				expr->type == KEST_EXPR_MAX
 			);
 		
 		if (y_min_needed)
@@ -1908,6 +1940,14 @@ float kest_expression_compute_max_rec(kest_expression *expr, kest_scope *scope, 
 			
 			goto expr_int_ret;
 		
+		case KEST_EXPR_MIN:
+			ret = (x_max < y_max) ? x_max : y_max;
+			goto expr_int_ret;
+		
+		case KEST_EXPR_MAX:
+			ret = (x_max > y_max) ? x_max : y_max;
+			goto expr_int_ret;
+			
 		default:
 			
 			goto expr_int_ret;
@@ -2521,6 +2561,14 @@ kest_interval kest_expression_compute_range_rec(kest_expression *expr, kest_scop
 			
 			goto expr_int_ret;
 		
+		case KEST_EXPR_MIN:
+			ret = kest_interval_ab((x_int.a < y_int.a) ? x_int.a : y_int.a, (x_int.b < y_int.b) ? x_int.b : y_int.b);
+			goto expr_int_ret;
+		
+		case KEST_EXPR_MAX:
+			ret = kest_interval_ab((x_int.a > y_int.a) ? x_int.a : y_int.a, (x_int.b > y_int.b) ? x_int.b : y_int.b);
+			goto expr_int_ret;
+		
 		default:
 			ret = kest_interval_real_line();
 			goto expr_int_ret;
@@ -2567,6 +2615,8 @@ const char *kest_expression_function_string(kest_expression *expr)
 		case KEST_EXPR_ATAN: 	return "atan";
 		case KEST_EXPR_LOG10: 	return "log10";
 		case KEST_EXPR_ERF: 	return "erf";
+		case KEST_EXPR_MIN: 	return "min";
+		case KEST_EXPR_MAX: 	return "max";
 		default: return "";
 	}
 	
@@ -2590,6 +2640,8 @@ const char *kest_expression_infix_operator_string(kest_expression *expr)
 	
 	return "";
 }
+
+#define BUF_APPEND(c) do {buf[buf_pos] = c; if (buf_len < ++buf_pos + 1) goto kest_expr_print_end;} while (0)
 
 int kest_expression_print_rec(kest_expression *expr, char *buf, int buf_len, int depth)
 {
@@ -2628,12 +2680,12 @@ int kest_expression_print_rec(kest_expression *expr, char *buf, int buf_len, int
 			{
 				if (!expr->val.ref_name)
 				{
-					buf[buf_pos++] = '('; if (buf_len < buf_pos + 1) goto kest_expr_print_end;
-					buf[buf_pos++] = 'n'; if (buf_len < buf_pos + 1) goto kest_expr_print_end;
-					buf[buf_pos++] = 'u'; if (buf_len < buf_pos + 1) goto kest_expr_print_end;
-					buf[buf_pos++] = 'l'; if (buf_len < buf_pos + 1) goto kest_expr_print_end;
-					buf[buf_pos++] = 'l'; if (buf_len < buf_pos + 1) goto kest_expr_print_end;
-					buf[buf_pos++] = ')';
+					BUF_APPEND('(');
+					BUF_APPEND('n');
+					BUF_APPEND('u');
+					BUF_APPEND('l');
+					BUF_APPEND('l');
+					BUF_APPEND(')');
 				}
 				else
 				{
@@ -2649,7 +2701,7 @@ int kest_expression_print_rec(kest_expression *expr, char *buf, int buf_len, int
 			
 		case KEST_EXPR_FORM_UNARY_OP:
 			// Currently, there is only one unary operator with standard form. Cbf writing anything fancy
-			buf[buf_pos++] = '-'; if (buf_len < buf_pos + 1) goto kest_expr_print_end;
+			BUF_APPEND('-');
 			
 			if (expr->sub_exprs[0] && expr->sub_exprs[0]->type == KEST_EXPR_CONST && expr->sub_exprs[0]->val.val_float < 0)
 			{
@@ -2670,11 +2722,25 @@ int kest_expression_print_rec(kest_expression *expr, char *buf, int buf_len, int
 			
 			if (buf_len < buf_pos + 1) goto kest_expr_print_end;
 			
+			goto bracketed_binary_sub_expr;
+			break;
+		
+		case KEST_EXPR_FORM_BINARY_FN:
+			str_ptr = kest_expression_function_string(expr);
+			
+			while (str_ptr[buf_pos] != 0 && buf_pos < buf_len)
+			{
+				buf[buf_pos] = str_ptr[buf_pos];
+				buf_pos++;
+			}
+			
+			if (buf_len < buf_pos + 1) goto kest_expr_print_end;
+			
 			goto bracketed_unary_sub_expr;
 			break;
 			
 		case KEST_EXPR_FORM_INFIX_OP:
-			buf[buf_pos++] = '('; if (buf_len < buf_pos + 1) goto kest_expr_print_end;
+			BUF_APPEND('(');
 			buf_pos += kest_expression_print_rec(expr->sub_exprs[0], &buf[buf_pos], buf_len - buf_pos, depth + 1);
 			if (buf_len < buf_pos + 1) goto kest_expr_print_end;
 			str_ptr = kest_expression_infix_operator_string(expr);
@@ -2686,23 +2752,33 @@ int kest_expression_print_rec(kest_expression *expr, char *buf, int buf_len, int
 			
 			buf_pos += kest_expression_print_rec(expr->sub_exprs[1], &buf[buf_pos], buf_len - buf_pos, depth + 1);
 			if (buf_len < buf_pos + 1) goto kest_expr_print_end;
-			buf[buf_pos++] = ')';
+			BUF_APPEND(')');
 			break;
 			
 		case KEST_EXPR_FORM_NORM:
-			buf[buf_pos++] = '|';  if (buf_len < buf_pos + 1) goto kest_expr_print_end;
+			BUF_APPEND('|');
 			buf_pos += kest_expression_print_rec(expr->sub_exprs[0], &buf[buf_pos], buf_len - buf_pos, depth + 1);
 			if (buf_len < buf_pos + 1) goto kest_expr_print_end;
-			buf[buf_pos++] = '|';
+			BUF_APPEND('|');
 			break;
 	}
 	
 	goto kest_expr_print_end;
 bracketed_unary_sub_expr:
-	buf[buf_pos++] = '(';  if (buf_len < buf_pos + 1) goto kest_expr_print_end;
+	BUF_APPEND('(');
 	buf_pos += kest_expression_print_rec(expr->sub_exprs[0], &buf[buf_pos], buf_len - buf_pos, depth + 1);
 	if (buf_len < buf_pos + 1) goto kest_expr_print_end;
-	buf[buf_pos++] = ')';
+	BUF_APPEND(')');
+	
+bracketed_binary_sub_expr:
+	BUF_APPEND('(');
+	buf_pos += kest_expression_print_rec(expr->sub_exprs[0], &buf[buf_pos], buf_len - buf_pos, depth + 1);
+	if (buf_len < buf_pos + 1) goto kest_expr_print_end;
+	BUF_APPEND(',');
+	BUF_APPEND(' ');
+	buf_pos += kest_expression_print_rec(expr->sub_exprs[1], &buf[buf_pos], buf_len - buf_pos, depth + 1);
+	if (buf_len < buf_pos + 1) goto kest_expr_print_end;
+	BUF_APPEND(')');
 	
 kest_expr_print_end:
 	

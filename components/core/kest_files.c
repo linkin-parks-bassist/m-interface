@@ -4,7 +4,7 @@
 
 #include "kest_int.h"
 
-#define PRINTLINES_ALLOWED 1
+#define PRINTLINES_ALLOWED 0
 
 static const char *FNAME = "kest_files.c";
 
@@ -49,8 +49,8 @@ static const char *FNAME = "kest_files.c";
 //#define DUMP_SEQUENCE_SAVE
 //#define DUMP_SEQUENCE_READ
 
-#define DUMP_STATE_SAVE
-#define DUMP_STATE_READ
+//#define DUMP_STATE_SAVE
+//#define DUMP_STATE_READ
 
 void dump_file_contents(char *fname)
 {

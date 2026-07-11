@@ -13,6 +13,15 @@ kest_event kest_event_preset_name_change(kest_preset *preset)
 	return ret;
 }
 
+kest_event kest_event_setting_change(kest_preset *preset)
+{
+	kest_event ret = {.type = KEST_EVENT_SETTING_CHANGE,
+		.val_ptr = (void*)preset
+	};
+	
+	return ret;
+}
+
 kest_event kest_event_sequence_name_change(kest_sequence *sequence)
 {
 	kest_event ret = {.type = KEST_EVENT_SEQUENCE_NAME_CHANGE,
@@ -79,6 +88,7 @@ void kest_event_log_from_ISR(kest_event event, BaseType_t *xHigherPriorityTaskWo
 void kest_event_handle(kest_event event)
 {
 	kest_event new_event;
+	kest_update update;
 	
 	kest_ui_page *current_page = global_cxt.pages.current_page;
 	kest_ui_page *new_page = current_page;
@@ -91,9 +101,15 @@ void kest_event_handle(kest_event event)
 			break;
 		
 		case KEST_EVENT_PARAM_CHANGE:
-			KEST_PRINTF("tee hee that tickles\n");
-			kest_update param_update;
-			kest_update_queue(param_update);
+			update.type = KEST_UPDATE_PARAM;
+			update.data.param = event.val_ptr;
+			kest_update_queue(update);
+			break;
+		
+		case KEST_EVENT_SETTING_CHANGE:
+			update.type = KEST_UPDATE_PRESET;
+			update.data.preset = event.val_ptr;
+			kest_update_queue(update);
 			break;
 		
 		case KEST_EVENT_FOOTSWITCH:

@@ -52,7 +52,7 @@ typedef struct {
 #define KEST_ALLOC_TYPE_FILTER  1
 #define KEST_ALLOC_TYPE_DELAY	2
 
-#define KEST_TAIL_CUTOFF (0.1 * KEST_FPGA_SAMPLE_RATE)
+#define KEST_TAIL_CUTOFF (int)(0.1 * (float)KEST_FPGA_SAMPLE_RATE)
 
 typedef struct {
 	int type;

@@ -45,6 +45,29 @@ int kest_expression_token_infix_type(char *token)
 	return 0;
 }
 
+
+int kest_expression_token_binary_function_type(char *token)
+{
+	if (!token) return 0;
+
+	if (strcmp(token, "pow") == 0) return KEST_EXPR_POW;
+	if (strcmp(token, "min") == 0) return KEST_EXPR_MIN;
+	if (strcmp(token, "max") == 0) return KEST_EXPR_MAX;
+
+	return 0;
+}
+
+int kest_expression_token_function_type(char *token, int arity)
+{
+	switch (arity)
+	{
+		case 1: return kest_expression_token_unary_type(token);
+		case 2: return kest_expression_token_binary_function_type(token);
+	}
+
+	return 0;
+}
+
 int kest_expression_infix_operator_precedence(int infix_type)
 {
 	switch (infix_type)
@@ -69,8 +92,118 @@ int kest_expression_infix_associativity(int infix_type)
 		case KEST_EXPR_MUL:
 		case KEST_EXPR_DIV: return 1;
 	}
-	
+
 	return 0;
+}
+
+
+kest_expression *kest_parse_expression_rec_pratt(kest_eff_parsing_state *ps,
+    kest_token_ll *tokens,
+    kest_token_ll **next_token,
+    kest_token_ll *tokens_end,
+    int min_binding_power,
+    int depth);
+
+kest_expression *kest_parse_expression_function_call(kest_eff_parsing_state *ps,
+    kest_token_ll *function_token,
+    kest_token_ll **next_token,
+    kest_token_ll *tokens_end,
+    int depth)
+{
+	if (!function_token || !function_token->data || !function_token->next)
+		return NULL;
+
+	kest_token_ll *current = function_token->next;
+	kest_token_ll *nt = NULL;
+	kest_expression *args[KEST_EXPR_MAX_ARITY];
+	int argc = 0;
+	int function_type = 0;
+
+	if (!token_is_char(current->data, '('))
+		return NULL;
+
+	current = current->next;
+
+	if (!current || current == tokens_end)
+	{
+		kest_parser_error_at(ps, function_token, "Malformed function call");
+		return NULL;
+	}
+
+	while (current && current != tokens_end)
+	{
+		if (token_is_char(current->data, ')'))
+			break;
+
+		if (argc >= KEST_EXPR_MAX_ARITY)
+		{
+			kest_parser_error_at(ps, current, "Too many arguments to \"%s\"", function_token->data);
+			return NULL;
+		}
+
+		args[argc] = kest_parse_expression_rec_pratt(ps,
+				current,
+				&nt,
+				tokens_end,
+				0,
+				depth + 1);
+
+		if (!args[argc])
+			return NULL;
+
+		argc++;
+		current = nt;
+
+		if (!current || current == tokens_end)
+		{
+			kest_parser_error_at(ps, function_token, "Malformed function call");
+			return NULL;
+		}
+
+		if (token_is_char(current->data, ','))
+		{
+			current = current->next;
+
+			if (!current || current == tokens_end || token_is_char(current->data, ')'))
+			{
+				kest_parser_error_at(ps, function_token, "Malformed function call");
+				return NULL;
+			}
+
+			continue;
+		}
+
+		if (token_is_char(current->data, ')'))
+			break;
+
+		kest_parser_error_at(ps, current, "Expected \",\" or \")\"");
+		return NULL;
+	}
+
+	if (!current || current == tokens_end || !token_is_char(current->data, ')'))
+	{
+		kest_parser_error_at(ps, function_token, "Malformed function call");
+		return NULL;
+	}
+
+	function_type = kest_expression_token_function_type(function_token->data, argc);
+
+	if (!function_type)
+	{
+		kest_parser_error_at(ps, function_token, "Unknown function \"%s\" with arity %d", function_token->data, argc);
+		return NULL;
+	}
+
+	if (next_token)
+		*next_token = current->next;
+
+	switch (argc)
+	{
+		case 1: return kest_expr_new_unary(function_type, args[0]);
+		case 2: return kest_expr_new_binary(function_type, args[0], args[1]);
+	}
+
+	return NULL;
 }
 
 kest_expression *kest_parse_expression_rec_pratt(kest_eff_parsing_state *ps,
@@ -129,8 +262,22 @@ kest_expression *kest_parse_expression_rec_pratt(kest_eff_parsing_state *ps,
 			kest_parser_error_at(ps, current, "Malformed expression");
 			goto pratt_bail;
 		}
-		
+
 		current = current->next;
+	}
+	else if (token_is_name(current->data)
+		  && current->next
+		  && token_is_char(current->next->data, '('))
+	{
+		lhs = kest_parse_expression_function_call(ps,
+				current,
+				&nt,
+				tokens_end,
+				depth + 1);
+
+		if (!lhs) goto pratt_bail;
+
+		current = nt;
 	}
 	else if (unary_type)
 	{

@@ -6,15 +6,16 @@
 #define KEST_EVENT_PARAM_CHANGE			2
 #define KEST_EVENT_PRESET_CHANGE 		3
 #define KEST_EVENT_PRESET_UPDATE		4
-#define KEST_EVENT_SEQUENCE_START		5
-#define KEST_EVENT_SEQUENCE_ADVANCE		6
-#define KEST_EVENT_SEQUENCE_REGRESS		7
-#define KEST_EVENT_FOOTSWITCH			8
-#define KEST_EVENT_PRESET_CREATE 		9
-#define KEST_EVENT_PRESET_NAME_CHANGE 	10
-#define KEST_EVENT_SEQUENCE_CREATE 		11
-#define KEST_EVENT_SEQUENCE_NAME_CHANGE 12
-#define KEST_EVENT_ENTER_PAGE			13
+#define KEST_EVENT_SETTING_CHANGE 		5
+#define KEST_EVENT_SEQUENCE_START		6
+#define KEST_EVENT_SEQUENCE_ADVANCE		7
+#define KEST_EVENT_SEQUENCE_REGRESS		8
+#define KEST_EVENT_FOOTSWITCH			9
+#define KEST_EVENT_PRESET_CREATE 		10
+#define KEST_EVENT_PRESET_NAME_CHANGE 	11
+#define KEST_EVENT_SEQUENCE_CREATE 		12
+#define KEST_EVENT_SEQUENCE_NAME_CHANGE 13
+#define KEST_EVENT_ENTER_PAGE			14
 
 typedef struct {
 	int type;
@@ -31,6 +32,7 @@ void kest_event_log_from_ISR(kest_event event, BaseType_t *xHigherPriorityTaskWo
 
 struct kest_sequence;
 
+kest_event kest_event_setting_change(kest_preset *preset);
 kest_event kest_event_preset_name_change(kest_preset *preset);
 kest_event kest_event_sequence_name_change(struct kest_sequence *sequence);
 #ifdef KEST_ENABLE_UI

@@ -705,7 +705,7 @@ int kest_updater_handle_scope_entry_update(kest_updater_state *state, kest_scope
 	return NO_ERROR;
 }
 
-#define PRINTLINES_ALLOWED 0
+#define PRINTLINES_ALLOWED 1
 
 int kest_updater_handle_update(kest_updater_state *state, kest_update update)
 {
@@ -1168,7 +1168,7 @@ int kest_updater_generate_command_list(kest_updater_state *state)
 	}
 	if (total_delay_alloc > KEST_TAIL_CUTOFF)
 	{
-		KEST_PRINTF_FORCE("which is greater than cutoff %d. activating tail...\n", KEST_TAIL_CUTOFF);
+		KEST_PRINTF_FORCE("... and %d > %d. activating tail...\n", total_delay_alloc, KEST_TAIL_CUTOFF);
 		kest_fpga_command_list_append(&state->cmds, kest_fpga_command_enable_tail());
 	}
 	
