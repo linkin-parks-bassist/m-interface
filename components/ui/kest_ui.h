@@ -43,6 +43,9 @@ DECLARE_LINKED_PTR_LIST(lv_obj_t);
 
 #define TOP_PANEL_FLAG_RW_TITLE 0b1
 
+
+#define ASYNC_NEEDS_LOCK 0
+
 typedef struct
 {
 	int flags;
@@ -72,14 +75,14 @@ kest_ui_page_panel *new_panel();
 #define CONTAINER_TYPE_STD_BTN_LIST 		1
 #define CONTAINER_TYPE_STD_MENU				2
 
-#define KEST_UI_PAGE_GENERIC	 0
-#define KEST_UI_PAGE_MAIN_MENU  1
-#define KEST_UI_PAGE_SEQ_LIST 	 2
-#define KEST_UI_PAGE_MSV		 3
-#define KEST_UI_PAGE_SEQ_VIEW	 4
-#define KEST_UI_PAGE_PROF_VIEW	 5
-#define KEST_UI_PAGE_TRANS_VIEW 6
-#define KEST_UI_PAGE_TRANS_SET	 7
+#define KEST_UI_PAGE_GENERIC	 		0
+#define KEST_UI_PAGE_MAIN_MENU  		1
+#define KEST_UI_PAGE_SEQ_LIST 	 		2
+#define KEST_UI_PAGE_MSV		 		3
+#define KEST_UI_PAGE_SEQ_VIEW	 		4
+#define KEST_UI_PAGE_PRESET_VIEW	 	5
+#define KEST_UI_PAGE_EFFECT_VIEW 		6
+#define KEST_UI_PAGE_EFFECT_SETTINGS 	7
 
 typedef struct kest_ui_page
 {
@@ -124,6 +127,8 @@ int enter_ui_page(kest_ui_page *page);
 void enter_ui_page_async(kest_ui_page *page);
 int enter_ui_page_forwards(kest_ui_page *page);
 int enter_ui_page_backwards(kest_ui_page *page);
+void kest_ui_page_enter_forwards_async(kest_ui_page *page);
+void kest_ui_page_enter_backwards_async(kest_ui_page *page);
 
 void enter_ui_page_cb(lv_event_t *e);
 void enter_ui_page_forwards_cb(lv_event_t *e);

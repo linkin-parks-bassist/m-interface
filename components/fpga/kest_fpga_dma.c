@@ -110,8 +110,8 @@ int kest_periodic_mem_read_cb(kest_fpga_read_spec *read)
 	mem_slot->value = s;
 	entry->updated = 1;
 	
-	if (mem_slot->effect && mem_slot->effect->preset)
-		kest_active_preset_updater_notify_effect_by_ptr(mem_slot->effect);
+	//if (mem_slot->effect && mem_slot->effect->preset)
+	//	kest_active_preset_updater_notify_effect_by_ptr(mem_slot->effect);
 	#endif
 	
 	return NO_ERROR;

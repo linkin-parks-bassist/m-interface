@@ -1,6 +1,6 @@
 #include "kest_int.h"
 
-#define PRINTLINES_ALLOWED 0
+#define PRINTLINES_ALLOWED 1
 
 static const char *FNAME = "kest_state.c";
 
@@ -134,6 +134,8 @@ int kest_cxt_enter_previous_current_page(kest_context *cxt, kest_state *state)
 	KEST_PRINTF("kest_cxt_enter_previous_current_page\n");
 		
 	kest_ui_page *page = kest_page_id_find_page(cxt, state->current_page);
+	
+	KEST_PRINTF("page = %p\n", page);
 	
 	enter_ui_page_async(page);
 	

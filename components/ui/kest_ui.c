@@ -301,7 +301,7 @@ int enter_ui_page(kest_ui_page *page)
 
 	global_cxt.pages.current_page = page;
 	
-	kest_queue_state_save();
+	kest_event_log(kest_event_enter_page(page));
 	
 	return NO_ERROR;
 }
@@ -315,6 +315,26 @@ void enter_ui_page_async_wrapper(void *ui_page)
 void enter_ui_page_async(kest_ui_page *page)
 {
 	kest_ui_async_call(enter_ui_page_async_wrapper, (void*)page);
+}
+
+void enter_ui_page_forwards_async_wrapper(void *page)
+{
+	enter_ui_page_forwards((kest_ui_page*)page);
+}
+
+void enter_ui_page_backwards_async_wrapper(void *page)
+{
+	enter_ui_page_backwards((kest_ui_page*)page);
+}
+
+void kest_ui_page_enter_forwards_async(kest_ui_page *page)
+{
+	kest_ui_async_call(enter_ui_page_forwards_async_wrapper, (void*)page);
+}
+
+void kest_ui_page_enter_backwards_async(kest_ui_page *page)
+{
+	kest_ui_async_call(enter_ui_page_backwards_async_wrapper, (void*)page);
 }
 
 int enter_ui_page_forwards(kest_ui_page *page)
@@ -367,7 +387,7 @@ int enter_ui_page_forwards(kest_ui_page *page)
 	
 	global_cxt.pages.current_page = page;
 	
-	kest_queue_state_save();
+	kest_event_log(kest_event_enter_page(page));
 	
 	return NO_ERROR;
 }
@@ -423,7 +443,7 @@ int enter_ui_page_backwards(kest_ui_page *page)
 
 	global_cxt.pages.current_page = page;
 	
-	kest_queue_state_save();
+	kest_event_log(kest_event_enter_page(page));
 	
 	return NO_ERROR;
 }
@@ -1392,11 +1412,15 @@ void kest_ui_unlock()
 
 void kest_ui_async_call(void (*f)(void*), void *arg)
 {
+#if ASYNC_NEEDS_LOCK
 	if (kest_ui_lock())
 	{
+#endif
 		lv_async_call(f, arg);
+#if ASYNC_NEEDS_LOCK
 		kest_ui_unlock();
 	}
+#endif
 }
 
 void kest_async_call_void_wrapper(void *arg)
@@ -1405,12 +1429,15 @@ void kest_async_call_void_wrapper(void *arg)
 	f();
 }
 
-
 void kest_ui_async_call_void(void (*f)(void))
 {
+#if ASYNC_NEEDS_LOCK
 	if (kest_ui_lock())
 	{
+#endif
 		lv_async_call(kest_async_call_void_wrapper, (void*)f);
+#if ASYNC_NEEDS_LOCK
 		kest_ui_unlock();
 	}
+#endif
 }

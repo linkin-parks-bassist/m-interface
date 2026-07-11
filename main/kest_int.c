@@ -3,6 +3,7 @@
 #include <time.h>
 
 static const char *FNAME = "kest_int.c";
+#define PRINTLINES_ALLOWED 1
 
 #include "bsp/esp32_p4_nano.h"
 #include "esp_task_wdt.h"
@@ -23,8 +24,12 @@ void app_main()
 	esp_task_wdt_deinit();
 	
 	#ifdef USE_DISPLAY
+	#ifndef SGTL_TEST
+	KEST_PRINTF("Initialise display...\n");
 	lv_disp_t *disp;
 	waveshare_dsi_touch_5_a_init(&disp);
+	KEST_PRINTF("Done\n");
+	#endif
 	#endif
 	
 	kest_event_task_start();
@@ -35,10 +40,14 @@ void app_main()
 	kest_event_log(startup_event);
 	
 	#ifdef KEST_SIMULATED
+	#ifdef USE_DISPLAY
+	#ifndef SGTL_TEST
     while (1)
     {
         lv_timer_handler();
         vTaskDelay(pdMS_TO_TICKS(10));
     }
+    #endif
+    #endif
 	#endif
 }

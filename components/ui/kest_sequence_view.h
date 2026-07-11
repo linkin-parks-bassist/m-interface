@@ -14,8 +14,6 @@ typedef struct
 	kest_button *save;
 	
 	struct kest_menu_item *menu_item;
-	
-	kest_representation rep;
 } kest_sequence_view_str;
 
 int init_sequence_view	   (kest_ui_page *page);
@@ -28,8 +26,5 @@ int sequence_view_free_all (kest_ui_page *page);
 int sequence_view_append_preset(kest_ui_page *page, kest_preset *sequence);
 
 int create_sequence_view_for(kest_sequence *sequence);
-
-void sequence_view_rep_update(void *representer, void *representee);
-void sequence_view_preset_button_rep_update(void *representer, void *representee);
 
 #endif

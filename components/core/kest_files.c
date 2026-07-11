@@ -4,19 +4,19 @@
 
 #include "kest_int.h"
 
-#define PRINTLINES_ALLOWED 0
+#define PRINTLINES_ALLOWED 1
 
 static const char *FNAME = "kest_files.c";
 
 #define IO_BUFFER_SIZE 128
 
-#define write_byte(x) 			  fputc(x, file);
-#define write_short(x)  do { arg16 = x; fwrite(&arg16, 1, 2, file);} while(0)
-#define write_int32(x)  do { arg32 = x; fwrite(&arg32, sizeof( int32_t), 1, file);} while(0)
-#define write_uint32(x) do {uarg32 = x; fwrite(&uarg32, sizeof(uint32_t), 1, file);} while(0)
-#define write_float(x) 			  fwrite(&x, sizeof(float), 1, file);
+#define write_byte(x) 	do {		    fputc(x, file); POS++; } while(0)
+#define write_short(x)  do { arg16 = x; fwrite(&arg16,                 1, 2, file); POS += 2;               } while (0)
+#define write_int32(x)  do { arg32 = x; fwrite(&arg32,  sizeof( int32_t), 1, file); POS += sizeof( int32_t);} while (0)
+#define write_uint32(x) do {uarg32 = x; fwrite(&uarg32, sizeof(uint32_t), 1, file); POS += sizeof(uint32_t);} while (0)
+#define write_float(x) 	do {		    fwrite(&x,      sizeof(float),    1, file); POS += sizeof(float);   } while (0)
 #define write_string(x) \
-	do {if (x) {for (int a = 0; x[a] != 0; a++) {fputc(x[a], file);}} fputc(0, file);} while (0)
+	do {if (x) {for (int a = 0; x[a] != 0; a++) {fputc(x[a], file); POS++;}} fputc(0, file); POS++;} while (0)
 
 #define read_byte(x)   x = fgetc(file);
 #define read_short(x)  fread(&x, sizeof(uint16_t), 1, file);
@@ -43,14 +43,23 @@ static const char *FNAME = "kest_files.c";
 		x = kest_strndup(string_read_buffer, IO_BUFFER_SIZE);\
 	} while (0);
 
+//#define DUMP_PRESET_SAVE
+//#define DUMP_PRESET_READ
+
+//#define DUMP_SEQUENCE_SAVE
+//#define DUMP_SEQUENCE_READ
+
+#define DUMP_STATE_SAVE
+#define DUMP_STATE_READ
+
 void dump_file_contents(char *fname)
 {
-	KEST_PRINTF("FILE HEX DUMP: %s\n", fname);
+	KEST_PRINTF_FORCE("FILE HEX DUMP: %s\n", fname);
 	FILE *file = fopen(fname, "rb");
 	
 	if (!file)
 	{
-		KEST_PRINTF("Failed to open file %s\n", fname);
+		KEST_PRINTF_FORCE("Failed to open file %s\n", fname);
 		return;
 	}
 	
@@ -59,14 +68,14 @@ void dump_file_contents(char *fname)
 	int i = 1;
 	while (fread(&byte, 1, 1, file))
 	{
-		if (i % 8 == 1) KEST_PRINTF_("\n %s%d | ", (i < 10) ? "  " : ((i < 100) ? " " : ""), i - 1);
-		KEST_PRINTF_("0x%02x ", byte);
+		if (i % 8 == 1) KEST_PRINTF_FORCE_("\n %s%d | ", (i < 10) ? "  " : ((i < 100) ? " " : ""), i - 1);
+		KEST_PRINTF_FORCE_("0x%02x ", byte);
 		i++;
 	}
 	
-	KEST_PRINTF_((i % 8 == 1) ? "\n" : "\n\n");
+	KEST_PRINTF_FORCE_((i % 8 == 1) ? "\n" : "\n\n");
 	
-	KEST_PRINTF("Dump of \"%s\" finished. Total bytes: %d\n", fname, i - 1);
+	KEST_PRINTF_FORCE("Dump of \"%s\" finished. Total bytes: %d\n", fname, i - 1);
 	fclose(file);
 }
 
@@ -106,6 +115,7 @@ int save_preset_as_file(kest_preset *preset, const char *fname)
 	FILE *file = fopen(fname, "wb");
 	
 	uint8_t len;
+	int POS = 0;
 	
 	if (!file)
 	{
@@ -205,6 +215,8 @@ int save_sequence_as_file(kest_sequence *sequence, const char *fname)
 		return ERR_FOPEN_FAIL;
 	}
 	
+	int POS = 0;
+	
 	write_byte(KEST_SEQUENCE_MAGIC_BYTE);
 	
 	write_byte(KEST_WRITE_UNFINISHED_BYTE);
@@ -251,7 +263,9 @@ int save_sequence_as_file(kest_sequence *sequence, const char *fname)
 	
 	KEST_PRINTF("Success\n");
 	
+	#ifdef DUMP_SEQUENCE_SAVE
 	dump_file_contents(fname);
+	#endif
 	return NO_ERROR;
 }
 
@@ -263,6 +277,7 @@ int save_state_to_file(kest_state *state, const char *fname)
 	KEST_PRINTF("Saving state to sd card!\n");
 	FILE *file = fopen(fname, "wb");
 	int32_t arg32;
+	int POS = 0;
 	
 	if (!file)
 	{
@@ -280,7 +295,7 @@ int save_state_to_file(kest_state *state, const char *fname)
 	write_string(state->active_preset_fname);
 	write_string(state->active_sequence_fname);
 	
-	KEST_PRINTF("Write state->current_page.type = %d = 0x%08x\n", state->current_page.type, state->current_page.type);
+	KEST_PRINTF("Write state->current_page.type = %d = 0x%08x, POS = %d\n", state->current_page.type, state->current_page.type, POS);
 	write_int32(state->current_page.type);
 	write_int32(state->current_page.id);
 	write_string(state->current_page.fname);
@@ -292,7 +307,10 @@ int save_state_to_file(kest_state *state, const char *fname)
 	
 	KEST_PRINTF("Success\n");
 	
+	#ifdef DUMP_STATE_SAVE
 	dump_file_contents(fname);
+	#endif
+	
 	return NO_ERROR;
 }
 
@@ -303,7 +321,9 @@ int load_state_from_file(kest_state *state, const char *fname)
 	
 	KEST_PRINTF("load state from file %s...\n", fname);
 	
+	#ifdef DUMP_STATE_READ
 	dump_file_contents(fname);
+	#endif
 	
 	FILE *file = fopen(fname, "rb");
 	
@@ -368,6 +388,8 @@ int load_state_from_file(kest_state *state, const char *fname)
 			i++;
 		}
 		state->active_preset_fname[i - j] = 0;
+		
+		i++;
 	}
 	else
 	{
@@ -375,6 +397,7 @@ int load_state_from_file(kest_state *state, const char *fname)
 		i++;
 	}
 	
+	KEST_PRINTF("Reading active sequence fname from position %d\n", i);
 	if (content[i])
 	{
 		j = i;
@@ -385,6 +408,8 @@ int load_state_from_file(kest_state *state, const char *fname)
 			i++;
 		}
 		state->active_sequence_fname[i - j] = 0;
+		
+		i++;
 	}
 	else
 	{
@@ -419,6 +444,8 @@ int load_state_from_file(kest_state *state, const char *fname)
 		state->current_page.fname[0] = 0;
 		i++;
 	}
+	
+	i++;
 
 	KEST_PRINTF("read input gain: %f\n",  state->input_gain);
 	KEST_PRINTF("read output gain: %f\n", state->output_gain);
@@ -441,7 +468,9 @@ int read_preset_from_file(kest_preset *preset, const char *fname)
 		return ERR_NULL_PTR;
 	}
 	
+	#ifdef DUMP_PRESET_READ
 	dump_file_contents(fname);
+	#endif
 	
 	FILE *file = fopen(fname, "r");
 	
@@ -598,7 +627,9 @@ int read_sequence_from_file(kest_sequence *sequence, const char *fname)
 		return ERR_NULL_PTR;
 	}
 	
+	#ifdef DUMP_SEQUENCE_READ
 	dump_file_contents(fname);
+	#endif
 	
 	FILE *file = fopen(fname, "r");
 	
@@ -910,7 +941,10 @@ int save_preset(kest_preset *preset)
 	if (ret_val == NO_ERROR)
 	{
 		KEST_PRINTF("Sucessfully saved preset as %s. Dumping file...\n", preset->fname);
-		dump_file_contents(preset->fname);
+		
+		#ifdef DUMP_PRESET_SAVE
+		dump_file_contents(fname);
+		#endif
 	}
 	else
 	{
@@ -948,7 +982,10 @@ int save_sequence(kest_sequence *sequence)
 	if (ret_val == NO_ERROR)
 	{
 		KEST_PRINTF("Sucessfully saved sequence as %s. Dumping file...\n", sequence->fname);
-		dump_file_contents(sequence->fname);
+		
+		#ifdef DUMP_SEQUENCE_SAVE
+		dump_file_contents(fname);
+		#endif
 	}
 	else
 	{

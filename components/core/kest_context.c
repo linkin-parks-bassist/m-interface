@@ -44,14 +44,6 @@ int kest_init_context(kest_context *cxt)
 	cxt->output_gain.min_expr = &kest_expression_standard_gain_min;
 	cxt->output_gain.max_expr = &kest_expression_standard_gain_max;
 	
-	#ifdef KEST_ENABLE_REPRESENTATIONS
-	cxt->state_rep.representer = NULL;
-	cxt->state_rep.representee = cxt;
-	cxt->state_rep.update = kest_state_representation_update;
-	cxt->state_rep_lstub.data = &cxt->state_rep;
-	cxt->state_rep_lstub.next = NULL;
-	#endif
-	
 	#ifdef KEST_USE_FREERTOS
 	cxt->mutex = xSemaphoreCreateMutex();
 	#endif

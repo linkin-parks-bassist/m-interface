@@ -191,7 +191,8 @@ int configure_sequence_list(kest_ui_page *page, void *data)
 	
 	sequence_ll *current = global_cxt.sequences;
 	KEST_PRINTF("current = global_cxt.sequences = %p\n", current);
-	kest_menu_item_pll *nl;
+	kest_menu_item_pll *nl = NULL;
+	kest_menu_item *item = NULL;
 	
 	int i = 0;
 	while (current)
@@ -202,7 +203,11 @@ int configure_sequence_list(kest_ui_page *page, void *data)
 		{
 			KEST_PRINTF("Add list item for sequence %d, %p = %s\n", i, current->data, current->data->name);
 			KEST_PRINTF("Sequence view page pointer: %p, dbl ptr: %p\n", current->data->view_page, &current->data->view_page);
-			menu_page_add_item(str, create_sequence_listing_menu_item(current->data->name, current->data, page));
+			item = create_sequence_listing_menu_item(current->data->name, current->data, page);
+			menu_page_add_item(str, item);
+			
+			if (current->data->view_page && current->data->view_page->data_struct)
+				((kest_sequence_view_str*)current->data->view_page->data_struct)->menu_item = item;
 		}
 		
 		current = current->next;

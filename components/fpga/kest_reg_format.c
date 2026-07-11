@@ -88,9 +88,9 @@ int kest_compute_register_formats(kest_block_pll *blocks, kest_scope *scope)
 				
 				current->data->reg_1.format = format_1;
 				
-				if (current->data->arg_a.type == BLOCK_OPERAND_TYPE_R && current->data->arg_a.addr == 0) format_a = format_1;
-				if (current->data->arg_b.type == BLOCK_OPERAND_TYPE_R && current->data->arg_b.addr == 0) format_b = format_1;
-				if (current->data->arg_c.type == BLOCK_OPERAND_TYPE_R && current->data->arg_c.addr == 0) format_c = format_1;
+				if (current->data->arg_a.type == BLOCK_OPERAND_TYPE_R && current->data->arg_a.addr == 1) format_a = format_1;
+				if (current->data->arg_b.type == BLOCK_OPERAND_TYPE_R && current->data->arg_b.addr == 1) format_b = format_1;
+				if (current->data->arg_c.type == BLOCK_OPERAND_TYPE_R && current->data->arg_c.addr == 1) format_c = format_1;
 			}
 			
 			kest_string_appendf(&string, "register 1 format: %d\n", format_1);

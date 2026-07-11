@@ -1,8 +1,6 @@
 #include "kest_int.h"
 
-#ifndef PRINTLINES_ALLOWED
-#define PRINTLINES_ALLOWED 0
-#endif
+#define PRINTLINES_ALLOWED 1
 
 static const char *FNAME = "kest_page_id.c";
 
@@ -32,14 +30,14 @@ kest_ui_page *kest_page_id_find_page(kest_context *cxt, kest_page_identifier id)
 			if (!seq) return NULL;
 			else return seq->view_page;
 			
-		case KEST_UI_PAGE_PROF_VIEW: 
+		case KEST_UI_PAGE_PRESET_VIEW: 
 			KEST_PRINTF("It is a preset view.\n");
 			preset = cxt_get_preset_by_fname(cxt, id.fname);
 			
 			if (!preset) return NULL;
 			else return preset->view_page;
 			
-		case KEST_UI_PAGE_TRANS_VIEW: 
+		case KEST_UI_PAGE_EFFECT_VIEW: 
 			KEST_PRINTF("It is a effect view. First, search for the preset with fname \"%s\"\n", id.fname);
 			preset = cxt_get_preset_by_fname(cxt, id.fname);
 			KEST_PRINTF("The returned preset: %p\n", preset);
@@ -65,7 +63,7 @@ kest_ui_page *kest_page_id_find_page(kest_context *cxt, kest_page_identifier id)
 				return effect->view_page;
 			}
 			
-		case KEST_UI_PAGE_TRANS_SET: 
+		case KEST_UI_PAGE_EFFECT_SETTINGS: 
 			KEST_PRINTF("It is a effect settings page.\n");
 			preset = cxt_get_preset_by_fname(cxt, id.fname);
 			
@@ -112,10 +110,10 @@ int kest_ui_page_create_identifier(kest_ui_page *page, kest_page_identifier *id)
 	if (!page->data_struct)
 		return ERR_BAD_ARGS;
 	
-	kest_preset_view_str		*pv_str = (kest_preset_view_str*)		page->data_struct;
-	kest_sequence_view_str 	*sv_str = (kest_sequence_view_str*)	page->data_struct;
-	kest_effect_view_str 	*tv_str = (kest_effect_view_str*)	page->data_struct;
-	effect_settings_page_str *ts_str = (effect_settings_page_str*)page->data_struct;
+	kest_preset_view_str	*pv_str = (kest_preset_view_str*)		page->data_struct;
+	kest_sequence_view_str 	*sv_str = (kest_sequence_view_str*)		page->data_struct;
+	kest_effect_view_str 	*tv_str = (kest_effect_view_str*)		page->data_struct;
+	effect_settings_page_str *ts_str = (effect_settings_page_str*)	page->data_struct;
 	kest_effect *effect = NULL;
 	kest_preset *preset = NULL;
 	kest_sequence *seq = NULL;
@@ -128,17 +126,17 @@ int kest_ui_page_create_identifier(kest_ui_page *page, kest_page_identifier *id)
 			seq = sv_str->sequence;
 			break;
 			
-		case KEST_UI_PAGE_PROF_VIEW: 
+		case KEST_UI_PAGE_PRESET_VIEW: 
 			preset = pv_str->preset;
 			break;
 			
-		case KEST_UI_PAGE_TRANS_VIEW:
+		case KEST_UI_PAGE_EFFECT_VIEW:
 			effect = tv_str->effect;
 			
 			if (!effect) return ERR_BAD_ARGS;
 			break;
 			
-		case KEST_UI_PAGE_TRANS_SET:
+		case KEST_UI_PAGE_EFFECT_SETTINGS:
 			effect = ts_str->effect;
 			
 			if (!effect) return ERR_BAD_ARGS;

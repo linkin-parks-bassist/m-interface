@@ -17,6 +17,9 @@
 #define KEST_ENABLE_UI
 
 
+//#define SGTL_TEST
+
+
 #define USE_DISPLAY
 #define KEST_ENABLE_SDCARD
 #define USE_SDCARD

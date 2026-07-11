@@ -106,12 +106,14 @@ int init_preset_view(kest_ui_page *page)
 	
 	init_ui_page(page);
 	
-	page->type = KEST_UI_PAGE_PROF_VIEW;
+	page->type = KEST_UI_PAGE_PRESET_VIEW;
 	
 	kest_preset_view_str *str = kest_alloc(sizeof(kest_preset_view_str));
 	
 	if (!str)
 		return ERR_ALLOC_FAIL;
+	
+	memset(str, 0, sizeof(kest_preset_view_str));
 	
 	str->settings_page = malloc(sizeof(kest_ui_page));
 	
@@ -125,6 +127,8 @@ int init_preset_view(kest_ui_page *page)
 	
 	if (ret_val != NO_ERROR)
 	{
+		kest_free(str->settings_page);
+		kest_free(str);
 		return ret_val;
 	}
 	
@@ -233,24 +237,12 @@ int preset_view_save_name(kest_ui_page *page)
 	
 	const char *new_name = lv_textarea_get_text(page->panel->title);
 	
-	KEST_PRINTF("new_name = \"%s\". str->preset->button = %p\n", new_name, str->preset->button);
-	
 	if (str->preset->name)
 		kest_free(str->preset->name);
 	
-	if (str->preset->button)
-	{
-		kest_active_button_change_label(str->preset->button, new_name);
-	}
-	
 	str->preset->name = kest_strndup(new_name, PRESET_NAME_MAX_LEN);
 	
-	lv_obj_clear_state(page->panel->title, LV_STATE_FOCUSED);
-	lv_obj_add_state(page->container, LV_STATE_FOCUSED);
-	
-	hide_keyboard();
-	
-	kest_queue_preset_save(str->preset);
+	kest_event_log(kest_event_preset_name_change(str->preset));
 	
 	return NO_ERROR;
 }

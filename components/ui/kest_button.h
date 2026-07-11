@@ -111,6 +111,9 @@ int kest_button_set_opacity(kest_button *button, int opacity);
 int kest_button_enable(kest_button *button);
 int kest_button_disable(kest_button *button);
 
+int kest_button_enable_async(kest_button *button);
+int kest_button_disable_async(kest_button *button);
+
 int kest_button_delete_ui(kest_button *button);
 
 #define DANGER_BUTTON_CONFIRM_TEXT "Yes"
@@ -178,6 +181,10 @@ int kest_active_button_change_label(kest_active_button *button, char *text);
 int kest_active_button_swap_del_button_for_persistent_unclickable(kest_active_button *button, const char *label);
 int kest_active_button_reset_del_button(kest_active_button *button);
 
+
+int kest_active_button_reset_del_button_async(kest_active_button *button);
+int kest_active_button_set_playing_async(kest_active_button *button);
+
 int kest_active_button_set_dimensions(kest_active_button *button, int w, int h);
 
 int kest_active_button_create_ui(kest_active_button *button, lv_obj_t *parent);
@@ -228,5 +235,7 @@ int kest_active_button_array_set_length(kest_active_button_array *array, int n);
 int kest_active_button_array_set_dimensions(kest_active_button_array *array, int w, int h);
 
 int kest_active_button_array_create_ui(kest_active_button_array *array, lv_obj_t *parent);
+
+kest_active_button *kest_active_button_array_find_with_data(kest_active_button_array *array, void *data);
 
 #endif

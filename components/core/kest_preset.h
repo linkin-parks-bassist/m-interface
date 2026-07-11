@@ -110,4 +110,6 @@ DECLARE_POOL(kest_preset);
 extern kest_allocator kest_preset_allocator;
 extern kest_preset_pool kest_preset_mem_pool;
 
+int kest_preset_handle_name_change(kest_preset *preset);
+
 #endif

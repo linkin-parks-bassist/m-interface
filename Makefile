@@ -83,6 +83,8 @@ lib_cfiles := 	core/kest_error_codes.c		\
 				core/kest_string.c			\
 				core/kest_bump_arena.c		\
 				core/kest_global.c			\
+				core/kest_update.c			\
+				core/kest_dependent.c		\
 				parser/kest_tokenizer.c		\
 				parser/kest_expr_parser.c	\
 				parser/kest_dictionary.c	\
@@ -96,11 +98,15 @@ lib_cfiles := 	core/kest_error_codes.c		\
 				fpga/kest_fpga_position.c	\
 				fpga/kest_fpga_instr.c		\
 				fpga/kest_fpga_dma.c		\
-				fpga/kest_fpga_io.c			
+				fpga/kest_fpga_io.c			\
+				fpga/kest_fpga_cmd.c			
 
 
-standalone_headers := core/kest_linked_list.h core/kest_dict.h fpga/kest_fpga_defs.h
-
+standalone_headers := core/kest_linked_list.h \
+					  core/kest_dict.h 		  \
+					  fpga/kest_fpga_defs.h   \
+					  fpga/kest_fpga_comms.h
+					  
 lib_hfiles := $(standalone_headers) $(lib_cfiles:.c=.h)
 app_hfiles := $(standalone_headers) $(app_cfiles:.c=.h)
 

@@ -233,9 +233,23 @@ void kest_parameter_widget_refresh_timer_wrapper(lv_timer_t *timer)
 	}
 }
 
+
 void kest_parameter_widget_refresh_async_wrapper(void *pw)
 {
 	kest_parameter_widget_refresh((kest_parameter_widget*)pw);
+}
+
+int kest_parameter_widget_refresh_async(kest_parameter_widget *pw)
+{
+	if (!pw)
+		return ERR_NULL_PTR;
+	
+	if (kest_system_time_ms < pw->last_refresh_ms)
+		return NO_ERROR;
+	
+	kest_ui_async_call(kest_parameter_widget_refresh_async_wrapper, (void*)pw);
+	
+	return NO_ERROR;
 }
 
 int kest_parameter_widget_refresh(kest_parameter_widget *pw)
@@ -249,6 +263,9 @@ int kest_parameter_widget_refresh(kest_parameter_widget *pw)
 		return ERR_BAD_ARGS;
 	
 	int ret_val = NO_ERROR;
+	
+	int32_t ms = kest_system_time_ms();
+	pw->last_refresh_ms = ms;
 	
 	KEST_PRINTF("pw->pressed = %d\n", pw->pressed);
 	KEST_PRINTF("pw->nominal_value = %f, pw->param->value = %f\n", pw->nominal_value, pw->param->value);
@@ -283,6 +300,10 @@ void parameter_widget_refresh(kest_parameter_widget *pw)
 		parameter_widget_update_value(pw);
 		parameter_widget_update_value_label(pw);
 	}
+	
+	
+	int32_t ms = kest_system_time_ms();
+	pw->last_refresh_ms = ms;
 }
 
 void parameter_widget_refresh_cb(lv_event_t *event)
@@ -297,6 +318,10 @@ void parameter_widget_refresh_cb(lv_event_t *event)
 	
 	parameter_widget_update_value(pw);
 	parameter_widget_update_value_label(pw);
+	
+	
+	int32_t ms = kest_system_time_ms();
+	pw->last_refresh_ms = ms;
 }
 
 void parameter_widget_change_cb_inner(kest_parameter_widget *pw)
@@ -368,6 +393,9 @@ void parameter_widget_change_cb_inner(kest_parameter_widget *pw)
 	{
 		// do something
 	}
+	
+	int32_t ms = kest_system_time_ms();
+	pw->last_refresh_ms = ms;
 }
 
 void parameter_widget_change_cb(lv_event_t *event)
@@ -420,7 +448,35 @@ int parameter_widget_create_ui(kest_parameter_widget *pw, lv_obj_t *parent)
 		return ERR_NULL_PTR;
 	
 	int ret_val;
-	if ((ret_val = parameter_widget_create_ui_no_callback(pw, parent)) != NO_ERROR)
+	if ((ret_val = parameter_widget_create_ui_ncbsf(pw, parent, 1.0f)) != NO_ERROR)
+		return ret_val;
+	
+	lv_obj_add_event_cb(pw->obj, parameter_widget_change_cb, LV_EVENT_VALUE_CHANGED, pw);
+	
+	lv_obj_add_event_cb(pw->obj, parameter_widget_pressing_cb, LV_EVENT_PRESSING, pw);
+	lv_obj_add_event_cb(pw->obj, parameter_widget_released_cb, LV_EVENT_RELEASED, pw);
+	
+	int32_t ms = kest_system_time_ms();
+	pw->last_refresh_ms = ms;
+	
+	return NO_ERROR;
+}
+
+
+int parameter_widget_create_ui_in_group(kest_parameter_widget *pw, lv_obj_t *parent, int occupants)
+{
+	if (!pw)
+		return ERR_NULL_PTR;
+	
+	float sf = 1.0;
+	
+	if (occupants > 2)
+	{
+		sf = 0.5f * (float)occupants;
+	}
+	
+	int ret_val;
+	if ((ret_val = parameter_widget_create_ui_ncbsf(pw, parent, sf)) != NO_ERROR)
 		return ret_val;
 	
 	lv_obj_add_event_cb(pw->obj, parameter_widget_change_cb, LV_EVENT_VALUE_CHANGED, pw);
@@ -431,7 +487,7 @@ int parameter_widget_create_ui(kest_parameter_widget *pw, lv_obj_t *parent)
 	return NO_ERROR;
 }
 
-int parameter_widget_create_ui_no_callback(kest_parameter_widget *pw, lv_obj_t *parent)
+int parameter_widget_create_ui_ncbsf(kest_parameter_widget *pw, lv_obj_t *parent, float sf)
 {
 	
 	KEST_PRINTF("parameter_widget_create_ui_no_callback(pw = %p, parent = %p)\n", pw, parent);
@@ -455,13 +511,20 @@ int parameter_widget_create_ui_no_callback(kest_parameter_widget *pw, lv_obj_t *
 		pw->param->min_expr);
 	KEST_PRINTF("param->max_expr = %p\n",
 		pw->param->max_expr);
+	
+	int height = 0;
+	int width = 0;
+	
 	switch (pw->param->widget_type)
 	{	
 		case PARAM_WIDGET_HSLIDER:
 			pw->obj = lv_slider_create(pw->container);
 			
+			height = (int)((float)HSLIDER_SIZE_H * sf);
+			width  = (int)((float)HSLIDER_SIZE_W * sf);
+			
 			lv_obj_align(pw->obj, LV_ALIGN_CENTER, 0, 20);
-			lv_obj_set_size(pw->obj, HSLIDER_SIZE_W, HSLIDER_SIZE_H);
+			lv_obj_set_size(pw->obj, width, height);
 			
 			lv_obj_set_size(pw->container, HSLIDER_SIZE_W + HSLIDER_PAD_W, HSLIDER_SIZE_H + HSLIDER_PAD_H);
 			
@@ -478,9 +541,11 @@ int parameter_widget_create_ui_no_callback(kest_parameter_widget *pw, lv_obj_t *
 		case PARAM_WIDGET_VSLIDER:
 			pw->obj = lv_slider_create(pw->container);
 			
-			lv_obj_align(pw->obj, LV_ALIGN_CENTER, 0, VSLIDER_PAD_H / 2);
-			lv_obj_set_size(pw->obj, VSLIDER_SIZE_W, VSLIDER_SIZE_H);
+			height = (int)((float)VSLIDER_SIZE_H * sf);
+			width  = (int)((float)VSLIDER_SIZE_W * sf);
 			
+			lv_obj_align(pw->obj, LV_ALIGN_CENTER, 0, VSLIDER_PAD_H / 2);
+			lv_obj_set_size(pw->obj, width, height);
 			
 			lv_obj_set_size(pw->container, VSLIDER_SIZE_W + VSLIDER_PAD_W, VSLIDER_SIZE_H + VSLIDER_PAD_H);
 			
@@ -497,8 +562,12 @@ int parameter_widget_create_ui_no_callback(kest_parameter_widget *pw, lv_obj_t *
 		case PARAM_WIDGET_VSLIDER_TALL:
 			pw->obj = lv_slider_create(pw->container);
 			
+			
+			height = 			  VSLIDER_TALL_SIZE_H;
+			width  = (int)((float)VSLIDER_TALL_SIZE_W * sf);
+			
 			lv_obj_align(pw->obj, LV_ALIGN_CENTER, 0, 30);
-			lv_obj_set_size(pw->obj, VSLIDER_TALL_SIZE_W, VSLIDER_TALL_SIZE_H);
+			lv_obj_set_size(pw->obj, width, height);
 			
 			lv_obj_set_size(pw->container, VSLIDER_TALL_SIZE_W + VSLIDER_TALL_PAD_W, VSLIDER_TALL_SIZE_H + VSLIDER_TALL_PAD_H);
 			
@@ -515,7 +584,10 @@ int parameter_widget_create_ui_no_callback(kest_parameter_widget *pw, lv_obj_t *
 		default:
 			pw->obj = lv_arc_create(pw->container);
 			
-			lv_obj_set_size(pw->container, VIRTUAL_POT_SIZE_W + VPOT_PAD_W, VIRTUAL_POT_SIZE_H + VPOT_PAD_H);
+			height = (int)((float)VIRTUAL_POT_SIZE_H * sf) + VPOT_PAD_H;
+			width  = (int)((float)VIRTUAL_POT_SIZE_W * sf) + VPOT_PAD_W;
+			
+			lv_obj_set_size(pw->container, width, height);
 			
 			lv_obj_align(pw->obj, LV_ALIGN_CENTER, 0, -15);
 			lv_obj_set_size(pw->obj, VIRTUAL_POT_SIZE_W, VIRTUAL_POT_SIZE_H);

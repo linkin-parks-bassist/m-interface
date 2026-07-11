@@ -52,6 +52,8 @@ typedef struct {
 #define KEST_ALLOC_TYPE_FILTER  1
 #define KEST_ALLOC_TYPE_DELAY	2
 
+#define KEST_TAIL_CUTOFF (0.1 * KEST_FPGA_SAMPLE_RATE)
+
 typedef struct {
 	int type;
 	int size_1;
@@ -115,12 +117,6 @@ int kest_updater_handle_resource_updates(kest_updater_state *state);
 int kest_updater_handle_update(kest_updater_state *state, kest_update update);
 int kest_updater_handle_preset_update(kest_updater_state *state, kest_preset *preset);
 int kest_updater_handle_scope_entry_update(kest_updater_state *state, kest_scope_entry *entry, kest_effect *effect);
-
-void kest_active_preset_updater_start();
-
-int kest_active_preset_updater_notify_effect_by_ptr(kest_effect *effect);
-int kest_active_preset_updater_notify_effect_by_id(int preset_id, int effect_id);
-int kest_active_preset_updater_notify_param (int preset_id, int effect_id, int parameter_id);
 
 kest_fpga_transfer_batch kest_standalone_generate_program_batch(kest_effect_ptr_list *effects);
 

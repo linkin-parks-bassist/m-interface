@@ -37,6 +37,9 @@
 #define VSLIDER_TALL_PAD_H  ((int)((130.0 / 1024.0) * DISPLAY_VRES))
 #define VSLIDER_TALL_PAD_W  ((int)((80.0  / 600.0)  * DISPLAY_HRES))
 
+#define KEST_PARAM_WIDGET_MAX_REFRESH_HZ 60
+#define KEST_PARAM_WIDGET_MIN_REFRESH_MS (int)(1000.0 / (float)KEST_PARAM_WIDGET_MAX_REFRESH_HZ)
+
 struct kest_preset;
 
 typedef struct kest_parameter_widget
@@ -61,6 +64,8 @@ typedef struct kest_parameter_widget
 	int pressed;
 	int driven;
 	
+	int32_t last_refresh_ms;
+	
 	kest_representation rep;
 } kest_parameter_widget;
 
@@ -68,7 +73,8 @@ int nullify_parameter_widget(kest_parameter_widget *pw);
 int configure_parameter_widget(kest_parameter_widget *pw, kest_parameter *param, struct kest_preset *preset, kest_ui_page *parent);
 
 int parameter_widget_create_ui(kest_parameter_widget *pw, lv_obj_t *parent);
-int parameter_widget_create_ui_no_callback(kest_parameter_widget *pw, lv_obj_t *parent);
+int parameter_widget_create_ui_ncbsf(kest_parameter_widget *pw, lv_obj_t *parent, float sf);
+int parameter_widget_create_ui_in_group(kest_parameter_widget *pw, lv_obj_t *parent, int occupants);
 
 int param_widget_request_value(kest_parameter_widget *pw);
 
@@ -84,6 +90,8 @@ void parameter_widget_change_cb_inner(kest_parameter_widget *pw);
 void free_parameter_widget(kest_parameter_widget *pw);
 
 int kest_parameter_widget_align_nominal_value(kest_parameter_widget *pw);
+
+int kest_parameter_widget_refresh_async(kest_parameter_widget *pw);
 
 DECLARE_LINKED_PTR_LIST(kest_parameter_widget);
 

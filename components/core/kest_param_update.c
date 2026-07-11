@@ -242,8 +242,6 @@ void kest_param_update_task(void *arg)
 					update.type = KEST_UPDATE_PARAM;
 					update.data.param = update_array[i].p;
 					kest_update_queue(update);
-					
-					kest_active_preset_updater_notify_effect_by_ptr(update_array[i].t);
 				}
 			}
 		}

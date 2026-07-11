@@ -689,7 +689,7 @@ int kest_scope_propagate_updates(kest_scope *scope)
 	return any_updates;
 }
 
-#define PRINTLINES_ALLOWED 1
+#define PRINTLINES_ALLOWED 0
 
 int kest_scope_detect_dependencies(kest_scope *scope)
 {

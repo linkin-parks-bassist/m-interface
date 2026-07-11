@@ -14,10 +14,12 @@
 
 
 static const char *FNAME = "kest_sgtl5000.c";
-#define PRINTLINES_ALLOWED 0
+#define PRINTLINES_ALLOWED 1
 
-#define SGTL5000_SDA 15
-#define SGTL5000_SCL 16
+#define I2C_PORT 0
+#define SGTL5000_SDA 2
+#define SGTL5000_SCL 3
+#define I2C_HZ 50000
 
 static const char *TAG = "sgtl5000";
 
@@ -32,41 +34,13 @@ static bool semi_automated;
 static i2c_master_bus_handle_t bus;
 static i2c_master_dev_handle_t dev;
 
+
 typedef struct {
     int i2c_port;
     int sda_gpio;
     int scl_gpio;
     uint32_t i2c_hz;
 } sgtl5000_i2c_cfg_t;
-
-int sgtl5000_i2c_init(const sgtl5000_i2c_cfg_t *cfg)
-{
-    if (!cfg) return ESP_ERR_INVALID_ARG;
-
-    i2c_master_bus_config_t bus_cfg = {
-        .i2c_port = -1,
-        .sda_io_num = cfg->sda_gpio,
-        .scl_io_num = cfg->scl_gpio,
-        .clk_source = I2C_CLK_SRC_DEFAULT,
-        .glitch_ignore_cnt = 7,
-        .intr_priority = 0,
-        .trans_queue_depth = 0,
-        .flags.enable_internal_pullup = false,
-    };
-
-    esp_err_t err = i2c_new_master_bus(&bus_cfg, &bus);
-    if (err != ESP_OK) return err;
-
-    i2c_device_config_t dev_cfg = {
-        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-        .device_address  = i2c_addr,
-        .scl_speed_hz    = cfg->i2c_hz,
-    };
-
-    err = i2c_master_bus_add_device(bus, &dev_cfg, &dev);
-    
-    return (err == ESP_OK) ? NO_ERROR : ERR_I2C_FAIL;
-}
 
 int sgtl5000_set_address_level(int cs_level_high)
 {
@@ -83,7 +57,7 @@ int sgtl5000_set_address_level(int cs_level_high)
     i2c_device_config_t dev_cfg = {
         .dev_addr_length = I2C_ADDR_BIT_LEN_7,
         .device_address  = i2c_addr,
-        .scl_speed_hz    = 400000,
+        .scl_speed_hz    = I2C_HZ,
     };
     
     esp_err_t err = i2c_master_bus_add_device(bus, &dev_cfg, &dev);
@@ -266,44 +240,108 @@ void sgtl5000_readout_registers()
     }
 }
 
+void sgtl_i2c_scan(void)
+{
+    KEST_PRINTF("Scanning I2C...\n");
+
+    for (uint8_t addr = 0; addr < 128; addr++)
+    {
+        i2c_master_dev_handle_t scan_dev = NULL;
+
+        i2c_device_config_t cfg = {
+            .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+            .device_address  = addr,
+            .scl_speed_hz    = I2C_HZ,
+        };
+
+        if (i2c_master_bus_add_device(bus, &cfg, &scan_dev) != ESP_OK)
+            continue;
+
+        esp_err_t err = i2c_master_probe(bus, addr, 50);
+
+        if (err == ESP_OK)
+            KEST_PRINTF("Found device at 0x%02X\n", addr);
+
+        i2c_master_bus_rm_device(scan_dev);
+    }
+
+    KEST_PRINTF("Scan complete.\n");
+}
+
 void kest_sgtl5000_init(void *param)
 {
-	sgtl_power_gpio_init();
+	//sgtl_power_gpio_init();
+	
+	gpio_reset_pin(2);
+	gpio_reset_pin(3);
+	gpio_set_pull_mode(2, GPIO_FLOATING);
+	gpio_set_pull_mode(3, GPIO_FLOATING);
 	
 	sgtl5000_i2c_cfg_t sgtl_i2c_cfg = {
-        .i2c_port = -1,
+        .i2c_port = I2C_PORT,
         .sda_gpio = SGTL5000_SDA,
         .scl_gpio = SGTL5000_SCL,
-        .i2c_hz   = 400000,
+        .i2c_hz = I2C_HZ,
     };
     
+    #ifdef SGTL_TEST
+	vTaskDelay(pdMS_TO_TICKS(100));
+    #else
 	vTaskDelay(pdMS_TO_TICKS(3000));
+    #endif
 
     int ret_val;
+	esp_err_t err;
     
-    KEST_PRINTF("Initialise I2C bus with SGTL5000...\n");
-    if ((ret_val = sgtl5000_i2c_init(&sgtl_i2c_cfg)) != NO_ERROR)
-	{
-		KEST_PRINTF("Error initialising I2C bus with SGTL5000...\n");
-		return;
-	}
+    i2c_master_bus_config_t bus_cfg = {
+        .i2c_port = I2C_PORT,
+        .sda_io_num = sgtl_i2c_cfg.sda_gpio,
+        .scl_io_num = sgtl_i2c_cfg.scl_gpio,
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .glitch_ignore_cnt = 7,
+        .intr_priority = 0,
+        .trans_queue_depth = 0,
+        .flags.enable_internal_pullup = false,
+    };
+
+    err = i2c_new_master_bus(&bus_cfg, &bus);
+    if (err != ESP_OK) goto sgtl_init_exit;
+    
+    
+    #ifdef SGTL_TEST
+    while (1)
+		sgtl_i2c_scan();
+    #endif
+	
+    i2c_device_config_t dev_cfg = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address  = i2c_addr,
+        .scl_speed_hz    = sgtl_i2c_cfg.i2c_hz,
+    };
+
+    err = i2c_master_bus_add_device(bus, &dev_cfg, &dev);
     
     if ((ret_val = sgtl5000_set_address_level(0)) != NO_ERROR)
-		return;
+		goto sgtl_init_exit;
     
     KEST_PRINTF("Initialising SGTL5000...\n");
     if ((ret_val = sgtl5000_enable()) != NO_ERROR)
 	{
 		KEST_PRINTF("Error initialising SGTL5000L %s\n", kest_error_code_to_string(ret_val));
-		return;
+		goto sgtl_init_exit;
 	}
 	
 	sgtl5000_line_in_level(7);
 	sgtl5000_line_out_level(31);
 	
+	#if PRINTLINES_ALLOWED == 1
+	sgtl5000_readout_registers();
+	#endif
+	
 	sgtl5000_status = 1;
 	
 	KEST_PRINTF("SGTL5000 Initialised\n");
 	
+sgtl_init_exit:
 	vTaskDelete(NULL);
 }

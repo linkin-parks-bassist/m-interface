@@ -13,7 +13,7 @@ int init_effect_settings_page(kest_ui_page *page)
 	
 	init_ui_page(page);
 	
-	page->type = KEST_UI_PAGE_TRANS_SET;
+	page->type = KEST_UI_PAGE_EFFECT_SETTINGS;
 	
 	page->configure = configure_effect_settings_page;
 	page->create_ui = create_effect_settings_page_ui;

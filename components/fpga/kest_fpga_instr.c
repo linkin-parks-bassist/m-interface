@@ -57,6 +57,17 @@ static const kest_instr_arg_fmt arg_format_add = {
 	.shift_pos = KEST_ARG_POS_NONE
 };
 
+static const kest_instr_arg_fmt arg_format_sub = {
+	.n_args = 3,
+	
+	.arg_a_pos = 1,
+	.arg_b_pos = KEST_ARG_POS_NONE,
+	.arg_c_pos = 0,
+	.res_pos   = KEST_ARG_POS_NONE,
+	.dest_pos  = 2,
+	.shift_pos = KEST_ARG_POS_NONE
+};
+
 static const kest_instr_arg_fmt arg_format_std_3 = {
 	.n_args = 4,
 	
@@ -194,7 +205,7 @@ static const kest_asm_instr_desc kest_instr_desc_add = {
 static const kest_asm_instr_desc kest_instr_desc_sub = {
 	.name = "sub",
 	.opcode = BLOCK_INSTR_MADD,
-	.arg_fmt = arg_format_std_2,
+	.arg_fmt = arg_format_sub,
 	.shift_policy = SHIFT_POLICY_0
 };
 

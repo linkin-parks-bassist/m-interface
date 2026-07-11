@@ -1,8 +1,6 @@
 #include "kest_int.h"
 
-#ifndef PRINTLINES_ALLOWED
-#define PRINTLINES_ALLOWED 0
-#endif
+#define PRINTLINES_ALLOWED 1
 
 static const char *FNAME = "kest_sequence.c";
 
@@ -34,14 +32,6 @@ int init_m_sequence(kest_sequence *sequence)
 	sequence->listings = NULL;
 	
 	sequence->main_sequence = 0;
-	
-	#ifdef KEST_ENABLE_REPRESENTATIONS
-	sequence->file_rep.representee = sequence;
-	sequence->file_rep.representer = NULL;
-	sequence->file_rep.update = kest_sequence_file_rep_update;
-	sequence->representations = NULL;
-	kest_representation_pll_safe_append(&sequence->representations, &sequence->file_rep);
-	#endif
 	
 	return NO_ERROR;
 }
@@ -318,8 +308,6 @@ int kest_sequence_begin(kest_sequence *sequence)
 	
 	sequence->position = sequence->presets;
 	
-	kest_sequence_update_representations(sequence);
-	
 	return NO_ERROR;
 }
 
@@ -354,8 +342,6 @@ int kest_sequence_begin_at(kest_sequence *sequence, kest_preset *preset)
 	set_active_preset_from_sequence(current->data);
 	
 	sequence->position = current;
-	
-	kest_sequence_update_representations(sequence);
 	
 	return NO_ERROR;
 }
@@ -444,8 +430,6 @@ int kest_sequence_stop(kest_sequence *sequence)
 	
 	sequence->position = NULL;
 	
-	kest_sequence_update_representations(sequence);
-	
 	return NO_ERROR;
 }
 
@@ -459,8 +443,6 @@ int kest_sequence_stop_from_preset(kest_sequence *sequence)
 	sequence->active = 0;
 	
 	sequence->position = NULL;
-	
-	kest_sequence_update_representations(sequence);
 	
 	return NO_ERROR;
 }
@@ -480,7 +462,6 @@ int kest_sequence_activate_at(kest_sequence *sequence, kest_preset *preset)
 			sequence->position = current;
 			sequence->active = 1;
 			
-			kest_sequence_update_representations(sequence);
 			return NO_ERROR;
 		}
 		
@@ -491,77 +472,52 @@ int kest_sequence_activate_at(kest_sequence *sequence, kest_preset *preset)
 	return ERR_BAD_ARGS;
 }
 
-int kest_sequence_add_representation(kest_sequence *sequence, kest_representation *rep)
+#ifdef KEST_ENABLE_UI
+int kest_sequence_handle_name_change_in_ui(kest_sequence *sequence)
 {
-	#ifdef KEST_ENABLE_REPRESENTATIONS
+	if (!sequence)
+		return ERR_NULL_PTR;
+	
+	char *new_name = sequence->name;
+	
+	if (!new_name)
+		new_name = "Sequence";
+	
+	hide_keyboard();
+	
+	kest_ui_page *sv_page = sequence->view_page;
+	kest_sequence_view_str *sv_str = sv_page ? (kest_sequence_view_str*)sv_page->data_struct : NULL;
+	
+	if (sv_page)
+	{
+		if (sv_page->panel && sv_page->panel->title)
+			lv_obj_clear_state(sv_page->panel->title, LV_STATE_FOCUSED);
+		if (sv_page->container)
+			lv_obj_add_state(sv_page->container, LV_STATE_FOCUSED);
+	}
+	
+	if (sv_str && sv_str->menu_item)
+		sequence_listing_menu_item_change_name(sv_str->menu_item, sequence->name);
+	
+	return NO_ERROR;
+}
+
+void kest_sequence_handle_name_change_in_ui_async_wrapper(void *sequence)
+{
+	kest_sequence_handle_name_change_in_ui(sequence);
+}
+#endif
+
+int kest_sequence_handle_name_change(kest_sequence *sequence)
+{
+	if (!sequence)
+		return ERR_NULL_PTR;
+	
 	#ifdef KEST_ENABLE_UI
-	if (!sequence)
-		return ERR_NULL_PTR;
+	kest_ui_async_call(kest_sequence_handle_name_change_in_ui_async_wrapper, (void*)sequence);
+	#endif
 	
-	kest_representation_pll *nl = kest_representation_pll_append(sequence->representations, rep);
-	
-	if (nl)
-		sequence->representations = nl;
-	else
-		return ERR_ALLOC_FAIL;
+	kest_queue_sequence_save(sequence);
 	
 	return NO_ERROR;
-	#else
-	return ERR_FEATURE_DISABLED;
-	#endif
-	#else
-	return ERR_FEATURE_DISABLED;
-	#endif
-}
-
-int kest_sequence_update_representations(kest_sequence *sequence)
-{
-	#ifdef KEST_ENABLE_REPRESENTATIONS
-	if (!sequence)
-		return ERR_NULL_PTR;
-	
-	kest_representation_pll *current = sequence->representations;
-	
-	if (!current)
-	{
-		KEST_PRINTF("Sequence %p has no representations.\n", sequence);
-	}
-	else
-	{
-		int i = 0;
-		while (current)
-		{
-			if (current->data)
-			{
-				KEST_PRINTF("Seq %p rep %d: {.representer = %p, representee = %p, update = %p}\n",
-					sequence, i, current->data->representer, current->data->representee, current->data->update);
-			}
-			
-			current = current->next;
-			i++;
-		}
-	}
-	
-	if (sequence->representations)
-		queue_representation_list_update(sequence->representations);
-	
-	return NO_ERROR;
-	#else
-	return ERR_FEATURE_DISABLED;
-	#endif
-}
-
-
-void kest_sequence_file_rep_update(void *representer, void *representee)
-{
-	KEST_PRINTF("kest_sequence_file_rep_update\n");
-	if (!representee)
-		return;
-	
-	kest_sequence *sequence = (kest_sequence*)representee;
-	
-	save_sequence(sequence);
-	
-	KEST_PRINTF("kest_sequence_file_rep_update done\n");
-	return;
 }

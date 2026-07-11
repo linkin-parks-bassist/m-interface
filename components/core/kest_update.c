@@ -4,288 +4,12 @@
 
 static const char *FNAME = "kest_update.c";
 
-#define UPDATE_DATA_SIZE 32
-
-#define KEST_EFFECT_UPDATE_BY_ID  0
-#define KEST_EFFECT_UPDATE_BY_PTR 1
-
-typedef struct kest_effect_update {
-	int type;
-	int ref_type;
-	int preset_id;
-	int effect_id;
-	kest_effect *ptr;
-} kest_effect_update;
-
-#define KEST_UPDATE_TYPE_NONE 	0
-#define KEST_UPDATE_TYPE_EFFECT 1
-
-typedef struct kest_update_ {
-	int type;
-	uint8_t data[UPDATE_DATA_SIZE];
-} kest_update_;
-
-#ifdef KEST_USE_FREERTOS
-QueueHandle_t update_queue = NULL;
-#endif
-static int initialised = 0;
-
-#define UPDATE_RATE_HZ 50
+#define UPDATE_RATE_HZ 100
 #define UPDATE_PERIOD_MS (1000.0f / (float)UPDATE_RATE_HZ)
 
 #ifdef KEST_USE_FREERTOS
-static const int update_period_ticks = (pdMS_TO_TICKS((int)UPDATE_PERIOD_MS) == 0) ? 1 : pdMS_TO_TICKS((int)UPDATE_PERIOD_MS);
-#endif
-
-void kest_active_preset_updater_task(void *arg)
-{
-	#ifdef KEST_USE_FREERTOS
-	if (!update_queue)
-	{
-		KEST_PRINTF("Update queue failed to initialise. Aborting\n");
-		vTaskDelete(NULL);
-		return;
-	}
-	
-	initialised = 1;
-	
-	TickType_t last_wake = xTaskGetTickCount();
-	kest_effect_update *effect_update;
-	kest_update_ update;
-	kest_effect_pll *current_effect = NULL;
-	kest_effect *effect = NULL;
-	kest_mem_slot *mem = NULL;
-	kest_lfo *lfo = NULL;
-	kest_dsp_resource *resource = NULL;
-	kest_preset *active_preset = NULL;
-	kest_preset *active_preset_prev = NULL;
-	
-	kest_effect_ptr_list updated_effects;
-	kest_effect_ptr_list_init(&updated_effects);
-	
-	int skip;
-	
-	while (1)
-	{
-		KEST_PRINTF("Updater awoken\n");
-		active_preset = global_cxt.active_preset;
-		
-		KEST_PRINTF("active_preset = %p\n", active_preset);
-		
-		if (!active_preset)
-			goto updater_sleep;
-		
-		KEST_PRINTF("active_preset->id = %d\n", active_preset->id);
-		KEST_PRINTF("active_preset->alive = %d, active_preset->active = %d, active_preset->pending = %d\n",
-			active_preset->alive, active_preset->active, active_preset->pending);
-		
-		if (!active_preset->alive || !active_preset->active || active_preset->pending)
-			goto updater_sleep;
-		
-		if (active_preset != active_preset_prev)
-			KEST_PRINTF("Preset change detected !\n");
-		
-		current_effect = active_preset->pipeline.effects;
-		
-		while (current_effect)
-		{
-			if (current_effect->data)
-			{
-				effect = current_effect->data;
-				
-				for (size_t i = 0; i < effect->resources.count; i++)
-				{
-					resource = effect->resources.entries[i];
-					
-					if (!resource)
-						continue;
-					
-					switch (resource->type)
-					{
-						case KEST_DSP_RESOURCE_MEM:
-							mem = (kest_mem_slot*)resource->data;
-							if (mem->read_enable)
-							{
-								KEST_PRINTF_FORCE("Dispatching mem slot %p read; effective addr %d\n", mem, mem->effective_addr);
-								//kest_fpga_queue_mem_read(mem->effective_addr, mem_read_callback, NULL);
-							}
-							break;
-						case KEST_DSP_RESOURCE_LFO:
-							lfo = (kest_lfo*)resource->data;
-							if (lfo->scope_entry)
-								lfo->scope_entry->updated = 1;
-							kest_active_preset_updater_notify_effect_by_ptr(current_effect->data);
-							break;
-					}
-				}
-			}
-			
-			current_effect = current_effect->next;
-		}
-		
-		
-		
-		while (xQueueReceive(update_queue, &update, 0) == pdPASS)
-		{
-			skip = 0;
-			switch (update.type)
-			{
-				case KEST_UPDATE_TYPE_EFFECT:
-					effect_update = (kest_effect_update*)&update.data;
-					
-					switch (effect_update->ref_type)
-					{
-						case KEST_EFFECT_UPDATE_BY_ID:
-							if (effect_update->preset_id == active_preset->id)
-							{
-								effect = kest_preset_get_effect_by_id(active_preset, effect_update->effect_id);
-								
-								if (!effect)
-									skip = 1;
-							}
-							else
-							{
-								skip = 1;
-							}
-							break;
-						
-						case KEST_EFFECT_UPDATE_BY_PTR:
-							effect = effect_update->ptr;
-							
-							if (!effect)
-							{
-								KEST_PRINTF("Effect updates by ptr reference, but the pointer is NULL! Ignoring\n");
-								skip = 1;
-							}
-							
-							if (effect->preset != active_preset)
-							{
-								KEST_PRINTF("The update applies outside the active preset! Ignoring\n");
-								skip = 1;
-							}
-							
-							break;
-					}
-					
-					if (!skip)
-					{
-						
-						KEST_PRINTF("The update applies to an effect in the active preset! Obtained pointer %p\n", effect);
-						
-						if (!kest_effect_ptr_list_contains(&updated_effects, effect))
-							kest_effect_ptr_list_append(&updated_effects, effect);
-					}
-						
-					break;
-				
-				default:
-					break;
-			}
-		}
-		
-		KEST_PRINTF("There are %d effects that have been updated in the active preset in the last %dms\n", updated_effects.count, (int)UPDATE_PERIOD_MS);
-			
-		for (size_t i = 0; i < updated_effects.count; i++)
-		{
-			effect = updated_effects.entries[i];
-			
-			if (!effect)
-				continue;
-			
-			if (global_cxt.pages.current_page == effect->view_page)
-				kest_effect_handle_updates_inc_ui(effect);
-			else
-				kest_effect_handle_updates(effect);
-		}
-		
-	updater_sleep:
-		kest_effect_ptr_list_drain(&updated_effects);
-		active_preset_prev = active_preset;
-		xTaskDelayUntil(&last_wake, update_period_ticks);
-	}
-	#endif
-}
-
-void kest_active_preset_updater_start()
-{
-	#ifdef KEST_USE_FREERTOS
-	return;
-	
-	update_queue = xQueueCreate(16, sizeof(kest_update_));
-	xTaskCreate(kest_active_preset_updater_task, "kest_update_task", 4096, NULL, 8, NULL);
-	#endif
-}
-
-int kest_active_preset_updater_notify_effect_by_id(int preset_id, int effect_id)
-{
-	#ifdef KEST_USE_FREERTOS
-	if (!initialised)
-		return ERR_UNINITIALISED;
-	
-	kest_update_ update;
-	kest_effect_update *effect_update = (kest_effect_update*)&update.data;
-	
-	memset(&update, 0, sizeof(kest_update_));
-	
-	update.type = KEST_UPDATE_TYPE_EFFECT;
-	effect_update->type = 0;
-	effect_update->ref_type = KEST_EFFECT_UPDATE_BY_ID;
-	effect_update->preset_id = preset_id;
-	effect_update->effect_id = effect_id;
-	
-	if (xQueueSend(update_queue, &update, pdMS_TO_TICKS(1)) != pdPASS)
-		return ERR_CURRENTLY_EXHAUSTED;
-	
-	return NO_ERROR;
-	#else
-	return ERR_FEATURE_DISABLED;
-	#endif
-}
-
-int kest_active_preset_updater_notify_effect_by_ptr(kest_effect *effect)
-{
-	#ifdef KEST_USE_FREERTOS
-	if (!initialised)
-		return ERR_UNINITIALISED;
-	
-	if (!effect)
-		return ERR_NULL_PTR;
-	
-	kest_update_ update;
-	kest_effect_update *effect_update = (kest_effect_update*)&update.data;
-	
-	memset(&update, 0, sizeof(kest_update_));
-	
-	update.type = KEST_UPDATE_TYPE_EFFECT;
-	effect_update->type = 0;
-	effect_update->ref_type = KEST_EFFECT_UPDATE_BY_PTR;
-	effect_update->ptr = effect;
-	
-	if (xQueueSend(update_queue, &update, pdMS_TO_TICKS(1)) != pdPASS)
-		return ERR_CURRENTLY_EXHAUSTED;
-	
-	return NO_ERROR;
-	#else
-	return ERR_FEATURE_DISABLED;
-	#endif
-}
-
-/********************************************************************
- ********************************************************************
- ********************************************************************
- ********************************************************************
- ********************************************************************
- ********************************************************************
- ********************************************************************
- ********************************************************************
- ********************************************************************
- ********************************************************************
- ********************************************************************
- ********************************************************************
- ********************************************************************/
-
-#ifdef KEST_USE_FREERTOS
 QueueHandle_t update_queue_ = NULL;
+static const int update_period_ticks = (pdMS_TO_TICKS((int)UPDATE_PERIOD_MS) == 0) ? 1 : pdMS_TO_TICKS((int)UPDATE_PERIOD_MS);
 #endif
 
 IMPLEMENT_LIST(kest_update);
@@ -805,7 +529,9 @@ int kest_updater_dispatch_mem_read(kest_updater_state *state, kest_dsp_resource 
 		return ERR_BAD_ARGS;
 	}
 	
+	#ifndef KEST_LIBRARY
 	kest_fpga_queue_mem_read(effect->position_.mem_start + res->handle, mem_read_callback, res);
+	#endif
 	
 	return NO_ERROR;
 }
@@ -957,11 +683,15 @@ int kest_updater_handle_scope_entry_update(kest_updater_state *state, kest_scope
 				kest_updater_add_filter_coef_update(state, dep, effect);
 				break;
 			case KEST_DEPENDENT_BOUND_PARAMETER:
+				#ifdef KEST_ENABLE_UI
 				kest_parameter_refresh_pw_async(dep->data.param);
+				#endif
 				break;
 			case KEST_DEPENDENT_DRIVEN_PARAMETER:
+				#ifdef KEST_ENABLE_UI
 				kest_parameter_refresh_pw_async(dep->data.param);
 				KEST_PRINTF("dep->data.param = %p, dep->data.param->effect = %p, dep->data.param->pw = %p\n", dep->data.param, dep->data.param->effect, dep->data.param->pw);
+				#endif
 				break;
 		}
 		
@@ -1359,6 +1089,8 @@ int kest_updater_generate_command_list(kest_updater_state *state)
 	kest_fpga_write *write;
 	kest_fpga_command cmd;
 	
+	int total_delay_alloc = 0;
+	
 	for (size_t i = 0; i < state->allocs.count; i++)
 	{
 		alloc = &state->allocs.entries[i];
@@ -1369,6 +1101,11 @@ int kest_updater_generate_command_list(kest_updater_state *state)
 			return ret_val;
 		}
 		kest_fpga_command_list_append(&state->cmds, cmd);
+		
+		if (alloc->type == KEST_ALLOC_TYPE_DELAY)
+		{
+			total_delay_alloc += alloc->size_1;
+		}
 	}
 	
 	for (size_t i = 0; i < state->instr_writes.count; i++)
@@ -1419,12 +1156,21 @@ int kest_updater_generate_command_list(kest_updater_state *state)
 		}
 	}
 	
-	
 	for (size_t i = 0; i < filter_updates.count; i++)
 		kest_fpga_command_list_append(&state->cmds, kest_fpga_command_commit_filter_coefs(filter_updates.entries[i]));
 	
 	if (any_reg_updates)
 		kest_fpga_command_list_append(&state->cmds, kest_fpga_command_commit_reg_updates());
+	
+	if (total_delay_alloc)
+	{
+		KEST_PRINTF_FORCE("total_delay_alloc = %d\n", total_delay_alloc);
+	}
+	if (total_delay_alloc > KEST_TAIL_CUTOFF)
+	{
+		KEST_PRINTF_FORCE("which is greater than cutoff %d. activating tail...\n", KEST_TAIL_CUTOFF);
+		kest_fpga_command_list_append(&state->cmds, kest_fpga_command_enable_tail());
+	}
 	
 	return ret_val;
 }
@@ -1499,6 +1245,7 @@ int kest_updater_send(kest_updater_state *state)
 
 kest_fpga_transfer_batch kest_standalone_generate_program_batch(kest_effect_ptr_list *effects)
 {
+	KEST_PRINTF("kest_standalone_generate_program_batch\n");
 	kest_fpga_transfer_batch batch;
 	
 	kest_updater_state state;

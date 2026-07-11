@@ -401,7 +401,7 @@ int create_menu_item_ui(kest_menu_item *item, lv_obj_t *parent)
 			break;
 		
 		case MENU_ITEM_PARAMETER_WIDGET:
-			parameter_widget_create_ui_no_callback(item->data, parent);
+			parameter_widget_create_ui_ncbsf(item->data, parent, 1.0f);
 			lv_obj_add_event_cb(((kest_parameter_widget*)item->data)->obj, parameter_widget_change_cb_settings_wrapper, LV_EVENT_VALUE_CHANGED, item);
 			break;
 		
@@ -709,8 +709,6 @@ int menu_page_add_item(kest_menu_page_str *str, kest_menu_item *item)
 {
 	if (!str || !item)
 		return ERR_NULL_PTR;
-	
-	//kest_printf("menu_page_add_item(%p, %p). str->items = %p\n", str, item, str->items);
 	
 	kest_menu_item_pll *nl = kest_menu_item_pll_append(str->items, item);
 	

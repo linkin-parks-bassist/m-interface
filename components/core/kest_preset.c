@@ -144,6 +144,10 @@ int kest_preset_set_active(kest_preset *preset)
 	
 	kest_updater_notify_preset(preset);
 	
+	#ifdef KEST_ENABLE_UI
+	kest_active_button_set_playing_async(preset->button);
+	#endif
+	
 	//kest_preset_program_fpga(preset);
 	
 	return NO_ERROR;
@@ -166,8 +170,9 @@ int kest_preset_set_inactive(kest_preset *preset)
 	
 	preset->active = 0;
 	
-	kest_preset_deactivate_dma(preset);
-	kest_preset_update_representations(preset);
+	#ifdef KEST_ENABLE_UI
+	kest_active_button_reset_del_button_async(preset->button);
+	#endif
 	
 	return NO_ERROR;
 }
@@ -555,4 +560,65 @@ kest_effect *kest_preset_get_effect_by_id(kest_preset *preset, int id)
 	kest_effect *result = kest_pipeline_get_effect_by_id(&preset->pipeline, id);
 	
 	return result;
+}
+
+#ifdef KEST_ENABLE_UI
+int kest_preset_handle_name_change_in_ui(kest_preset *preset)
+{
+	if (!preset)
+		return ERR_NULL_PTR;
+	
+	char *new_name = preset->name;
+	
+	if (!new_name)
+		new_name = "Preset";
+	
+	if (preset->button)
+	{
+		kest_active_button_change_label(preset->button, new_name);
+	}
+	
+	hide_keyboard();
+	
+	kest_ui_page *pv_page = preset->view_page;
+	
+	if (pv_page)
+	{
+		if (pv_page->panel && pv_page->panel->title)
+			lv_obj_clear_state(pv_page->panel->title, LV_STATE_FOCUSED);
+		if (pv_page->container)
+			lv_obj_add_state(pv_page->container, LV_STATE_FOCUSED);
+	}
+	
+	kest_sequence *seq = preset->sequence;
+	kest_ui_page *sv_page = seq ? seq->view_page : NULL;
+	kest_sequence_view_str *sv_str = sv_page ? (kest_sequence_view_str*)sv_page->data_struct : NULL;
+	kest_active_button_array *sv_array = sv_str ? sv_str->array : NULL;
+	kest_active_button *seq_button = sv_array ? kest_active_button_array_find_with_data(sv_array, seq) : NULL;
+	
+	if (seq_button)
+		kest_button_set_label(&seq_button->button, new_name);
+	
+	return NO_ERROR;
+}
+
+void kest_preset_handle_name_change_in_ui_async_wrapper(void *preset)
+{
+	kest_preset_handle_name_change_in_ui(preset);
+}
+#endif
+
+int kest_preset_handle_name_change(kest_preset *preset)
+{
+	if (!preset)
+		return ERR_NULL_PTR;
+	
+	#ifdef KEST_ENABLE_UI
+	kest_ui_async_call(kest_preset_handle_name_change_in_ui_async_wrapper, (void*)preset);
+	#endif
+	
+	kest_queue_preset_save(preset);
+	kest_queue_sequence_save(preset->sequence);
+	
+	return NO_ERROR;
 }

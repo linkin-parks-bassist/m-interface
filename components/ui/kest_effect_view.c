@@ -48,7 +48,7 @@ int init_effect_view(kest_ui_page *page)
 	
 	init_ui_page(page);
 	
-	page->type = KEST_UI_PAGE_TRANS_VIEW;
+	page->type = KEST_UI_PAGE_EFFECT_VIEW;
 	
 	page->panel = new_panel();
 	
@@ -155,7 +155,9 @@ int configure_effect_view(kest_ui_page *page, void *data)
 			group = current_param->data->group;
 			
 			if (0 <= group && group < EFFECT_VIEW_MAX_GROUPS)
-				str->group_inhabited[group] = 1;
+			{
+				str->group_inhabited[group]++;
+			}
 		}
 		
 		current_param = current_param->next;
@@ -282,6 +284,7 @@ int create_effect_view_ui(kest_ui_page *page)
 	i = 0;
 	
 	KEST_PRINTF("\n");
+	
 	while (current_param)
 	{
 		if (current_param->data)
@@ -293,7 +296,7 @@ int create_effect_view_ui(kest_ui_page *page)
 					current_param->data->param->name, current_param->data->param->name_internal, group);
 				if (0 <= group && group < EFFECT_VIEW_MAX_GROUPS)
 				{
-					parameter_widget_create_ui(current_param->data, str->group_containers[group]);
+					parameter_widget_create_ui_in_group(current_param->data, str->group_containers[group], str->group_inhabited[group]);
 				}
 				else
 				{

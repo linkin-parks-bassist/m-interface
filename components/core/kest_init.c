@@ -1,21 +1,36 @@
 #include "kest_int.h"
 
-#define PRINTLINES_ALLOWED 0
+#define PRINTLINES_ALLOWED 1
 
 static const char *FNAME = "kest_init.c";
 
 int kest_init()
 {
+	KEST_PRINTF("Initialising...\n");
+	#ifdef SGTL_TEST
+	xTaskCreate(kest_sgtl5000_init, "kest_sgtl5000_init_task", 8192, NULL, 8, NULL);
+	return NO_ERROR;
+	#endif
+	
+	#ifndef USE_DISPLAY
+	xTaskCreate(kest_sgtl5000_init, "kest_sgtl5000_init_task", 8192, NULL, 8, NULL);
+	init_footswitch_task();
+	
+	return NO_ERROR;
+	#endif
+	
 	int ret_val = NO_ERROR;
 	
 	kest_mem_init();
 	
 	kest_update_task_start();
 	
+	#ifdef USE_DISPLAY
 	kest_ui_lock();
 	kest_init_context(&global_cxt);
 	kest_init_global_pages(&global_cxt.pages);
 	kest_ui_unlock();
+	#endif
 	
 	#ifdef USE_FPGA
 	kest_init_fpga_comms();
@@ -57,6 +72,10 @@ int kest_init()
 	}
 	
 	kest_init_file_task();
+	
+	#ifndef KEST_DESKTOP
+	kest_init_footswitches();
+	#endif
 	
 	return ret_val;
 }

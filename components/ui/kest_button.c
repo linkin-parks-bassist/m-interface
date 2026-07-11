@@ -1,12 +1,9 @@
 #include "kest_int.h"
 
-#ifndef PRINTLINES_ALLOWED
+static const char *FNAME = "kest_button.c";
 #define PRINTLINES_ALLOWED 0
-#endif
 
 IMPLEMENT_LINKED_PTR_LIST(kest_active_button);
-
-static const char *FNAME = "kest_active_button.c";
 
 int init_button(kest_button *button)
 {
@@ -435,6 +432,31 @@ int kest_button_disable(kest_button *button)
 	}
 	
 	//kest_printf("kest_button_disable done\n");
+	return NO_ERROR;
+}
+
+void kest_button_enable_async_wrapper(void *button_)
+{
+	kest_button *button = (kest_button*)button_;
+	kest_button_enable(button);
+}
+
+void kest_button_disable_async_wrapper(void *button_)
+{
+	kest_button *button = (kest_button*)button_;
+	kest_button_disable(button);
+}
+
+
+int kest_button_enable_async(kest_button *button)
+{
+	kest_ui_async_call(kest_button_enable_async_wrapper, (void*)button);
+	return NO_ERROR;
+}
+
+int kest_button_disable_async(kest_button *button)
+{
+	kest_ui_async_call(kest_button_disable_async_wrapper, (void*)button);
 	return NO_ERROR;
 }
 
@@ -1075,7 +1097,6 @@ int kest_active_button_add_del_button(kest_active_button *button)
 	
 	button_set_clicked_cb(button->del_button, kest_active_button_del_cb, button);
 	
-	//kest_printf("kest_active_button_add_del_button done\n");
 	return NO_ERROR;
 }
 
@@ -1206,9 +1227,55 @@ int kest_active_button_swap_del_button_for_persistent_unclickable(kest_active_bu
 	return NO_ERROR;
 }
 
+
+int kest_active_button_set_playing(kest_active_button *button)
+{
+	if (!button)
+		return ERR_NULL_PTR;
+	
+	if (!button->del_button)
+		return ERR_BAD_ARGS;
+	
+	if (!button->del_button->obj)
+		return ERR_BAD_ARGS;
+	
+	if (!button->del_button->label)
+	{
+		kest_button_create_label_ui(button->del_button);
+	}
+	
+	lv_anim_del(button, kest_active_button_del_button_fade_cb);
+	
+	kest_button_reset_state(button->del_button);
+	kest_button_set_label(button->del_button, LV_SYMBOL_PLAY);
+	kest_button_set_unclickable(button->del_button);
+	kest_button_set_opacity(button->del_button, 255);
+	kest_button_unhide(button->del_button);
+	
+	button->del_button_anims = 0;
+	
+	return NO_ERROR;
+}
+
+void kest_active_button_set_playing_async_wrapper(void *button_)
+{
+	kest_active_button_set_playing((kest_active_button*)button_);
+}
+
+int kest_active_button_set_playing_async(kest_active_button *button)
+{
+	kest_ui_async_call(kest_active_button_set_playing_async_wrapper, (void*)button);
+	return NO_ERROR;
+}
+
+void kest_active_button_reset_del_button_async_wrapper(void *button_)
+{
+	kest_active_button_reset_del_button((kest_active_button*)button_);
+}
+
 int kest_active_button_reset_del_button(kest_active_button *button)
 {
-	//kest_printf("kest_active_button_reset_del_button. button = %p\n", button);
+	KEST_PRINTF("kest_active_button_reset_del_button. button = %p\n", button);
 	if (!button)
 		return ERR_NULL_PTR;
 	
@@ -1250,6 +1317,13 @@ int kest_active_button_reset_del_button(kest_active_button *button)
 	return NO_ERROR;
 }
 
+
+
+int kest_active_button_reset_del_button_async(kest_active_button *button)
+{
+	kest_ui_async_call(kest_active_button_reset_del_button_async_wrapper, (void*)button);
+	return NO_ERROR;
+}
 
 int kest_active_button_array_init(kest_active_button_array *array)
 {
@@ -1434,4 +1508,20 @@ int kest_active_button_array_set_dimensions(kest_active_button_array *array, int
 	}
 	
 	return NO_ERROR;
+}
+
+
+kest_active_button *kest_active_button_array_find_with_data(kest_active_button_array *array, void *data)
+{
+	if (array)
+		return NULL;
+	
+	
+	for (int i = 0; i < array->n_buttons; i++)
+	{
+		if (array->buttons[i] && array->buttons[i]->data == data)
+			return array->buttons[i];
+	}
+	
+	return NULL;
 }

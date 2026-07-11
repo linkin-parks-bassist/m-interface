@@ -76,11 +76,7 @@ int init_sequence_view(kest_ui_page *page)
 	if (!str)
 		return ERR_ALLOC_FAIL;
 	
-	str->sequence = NULL;
-	
-	str->play = NULL;
-	str->plus = NULL;
-	str->save = NULL;
+	memset(str, 0, sizeof(kest_sequence_view_str));
 	
 	page->data_struct = str;
 	
@@ -96,10 +92,6 @@ int init_sequence_view(kest_ui_page *page)
 	
 	str->array->clicked_cb = seq_view_clicked_cb;
 	str->array->moved_cb   = seq_view_moved_cb;
-	
-	str->rep.representee = NULL;
-	str->rep.representer = page;
-	str->rep.update = sequence_view_rep_update;
 	
 	return NO_ERROR;
 }
@@ -163,16 +155,8 @@ void seq_plus_cb(lv_event_t *e)
 	new_preset->button = button;
 	
 	KEST_PRINTF("seq_plus_cb, line %d\n", __LINE__);
-	kest_active_button_set_representation(button, button, new_preset, sequence_view_preset_button_rep_update);
-	
-	
-	KEST_PRINTF("seq_plus_cb, line %d\n", __LINE__);
 	if (page->ui_created)
 		kest_active_button_create_ui(button, page->container);
-	
-	
-	KEST_PRINTF("seq_plus_cb, line %d\n", __LINE__);
-	kest_preset_add_representation(new_preset, &button->rep);
 	
 	return;
 }
@@ -252,17 +236,7 @@ void sequence_view_set_name(lv_event_t *e)
 	
 	str->sequence->name = kest_strndup(new_name, PRESET_NAME_MAX_LEN);
 	
-	lv_obj_clear_state(page->panel->title, LV_STATE_FOCUSED);
-	lv_obj_add_state(page->container, LV_STATE_FOCUSED);
-	
-	hide_keyboard();
-	
-	str->sequence->unsaved_changes = 1;
-	kest_button_enable(str->save);
-	
-	kest_sequence_update_representations(str->sequence);
-	
-	sequence_listing_menu_item_change_name(str->menu_item, str->sequence->name);
+	kest_event_log(kest_event_sequence_name_change(str->sequence));
 	
 	return;
 }
@@ -356,10 +330,6 @@ int configure_sequence_view(kest_ui_page *page, void *data)
 		current = current->next;
 	}
 	
-	str->rep.representee = sequence;
-	
-	kest_sequence_add_representation(sequence, &str->rep);
-	
 	page->configured = 1;
 	
 	return NO_ERROR;
@@ -421,75 +391,4 @@ int sequence_view_free_all(kest_ui_page *page)
 	
 	return NO_ERROR;
 	
-}
-
-void sequence_view_rep_update(void *representer, void *representee)
-{
-	kest_ui_page *page = (kest_ui_page*)representer;
-	kest_sequence *sequence = (kest_sequence*)representee;
-	
-	if (!page || !sequence)
-		return;
-	
-	ui_page_set_title(page, sequence->name);
-	
-	kest_sequence_view_str *str = page->data_struct;
-	
-	if (!str)
-		return;
-	
-	if (sequence->active)
-	{
-		kest_button_disable(str->play);
-	}
-	else
-	{
-		kest_button_enable(str->play);
-	}
-	
-	#ifdef USE_SDCARD
-	if (sequence->unsaved_changes)
-	{
-		kest_button_enable(str->save);
-	}
-	else
-	{
-		kest_button_disable(str->save);
-	}
-	#endif
-	
-	return;
-}
-
-
-void sequence_view_preset_button_rep_update(void *representer, void *representee)
-{
-	KEST_PRINTF("sequence_view_preset_button_rep_update\n");
-	kest_active_button *button  = (kest_active_button*)representer;
-	kest_preset *preset = (kest_preset*)representee;
-	
-	KEST_PRINTF("button = %p, preset = %s\n", button, preset ? (preset->name ? preset->name : "Unnamed Preset") : "NULL");
-	
-	if (!button || !preset)
-	{
-		KEST_PRINTF("sequence_view_preset_button_rep_update bailing...\n");
-		return;
-	}
-	
-	kest_active_button_change_label(button, preset->name);
-	
-	if (preset->active)
-	{
-		KEST_PRINTF("preset is active; activating active symbol\n");
-		kest_active_button_swap_del_button_for_persistent_unclickable(button, LV_SYMBOL_PLAY);
-	}
-	else
-	{
-		KEST_PRINTF("preset is inactive; disabling active symbol\n");
-		kest_active_button_reset_del_button(button);
-	}
-	
-	KEST_PRINTF("sequence_view_preset_button_rep_update done\n");
-	
-	return;
 }
