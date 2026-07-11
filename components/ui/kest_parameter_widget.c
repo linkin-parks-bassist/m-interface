@@ -643,7 +643,7 @@ int kest_parameter_widget_align_nominal_value(kest_parameter_widget *pw)
 //
 //
 
-#define PRINTLINES_ALLOWED 1
+#define PRINTLINES_ALLOWED 0
 
 int setting_widget_update_value(kest_setting_widget *sw);
 
